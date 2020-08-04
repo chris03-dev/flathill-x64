@@ -1,0 +1,6 @@
+mov rax, 10
+add rax, 2
+add rax, 0xAF
+mov rbx, 5
+div rbx
+
