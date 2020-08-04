@@ -1,5 +1,4 @@
 # flathill-x64
-A project for a statically compiled, weak typed, programming language called "flathill".  Compiler built using C++.  Compiler assembly output targets flat assembler by Tomasz Grysztar.
 
 This is an amateur hobby project about a compiler for my very own programming language.
 
