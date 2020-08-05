@@ -67,6 +67,7 @@ bool isnumeric(const std::string &s) {
 				else if (not (alphanum.count(s[i]) or isdigit(s[i])))
 					return 0;	
 			}
+			else return 0;
 		}
 		//Check if number
 		else if (not isdigit(s[i])) 
@@ -213,6 +214,11 @@ const std::string &sscope) {
 				if (not isnum[0]) {
 					if (isglobal[0]) lvalue = "G_" + token[0];
 					else lvalue = sscope + token[0];
+					
+					if (cdata.d8m.count(lvalue)) 	reg_ax = "al";
+					if (cdata.d16m.count(lvalue))	reg_ax = "ax";
+					if (cdata.d32m.count(lvalue))	reg_ax = "eax";
+					if (cdata.d64m.count(lvalue))	reg_ax = "rax";
 				}
 				else {
 					lvalue = token[0];
@@ -255,41 +261,40 @@ const std::string &sscope) {
 			
 			//PARSE THE OPERATION!
 			if (token[0] != "") {
-				out << "mov rax, " << lvalue << std::endl;
-				if (isnum[1]) {
-					if (token[1] == "+")
-						out << "add rax, " << rvalue << std::endl;
-					if (token[1] == "-")
-						out << "sub rax, " << rvalue << std::endl;
-					if (token[1] == "*") {
-						out << "mov rbx, " << rvalue << std::endl;
-						out << "mul rbx" << std::endl;
-					}
-					if (token[1] == "/") {
-						out << "mov rbx, " << rvalue << std::endl;
-						out << "div rbx" << std::endl;
-					}
-				}
+				if (isnum[0])	out << "mov " << reg_ax << ", " << lvalue << std::endl;
+				else         	out << "mov " << reg_ax << ", [" << lvalue << "]" << std::endl;
 				
 				token[0] == "";
 			}
-			else {
-				if (isnum[1]) {
-					if (token[1] == "+")
-						out << "add rax, " << rvalue << std::endl;
-					if (token[1] == "-")
-						out << "sub rax, " << rvalue << std::endl;
-					if (token[1] == "*") {
-						out << "mov rbx, " << rvalue << std::endl;
-						out << "mul rbx" << std::endl;
-					}
-					if (token[1] == "/") {
-						out << "mov rbx, " << rvalue << std::endl;
-						out << "div rbx" << std::endl;
-					}
+			if (isnum[1]) {
+				if (token[1] == "+")
+					out << "add rax, " << rvalue << std::endl;
+				if (token[1] == "-")
+					out << "sub rax, " << rvalue << std::endl;
+				if (token[1] == "*") {
+					out << "mov rbx, " << rvalue << std::endl;
+					out << "mul rbx" << std::endl;
+				}
+				if (token[1] == "/") {
+					out << "mov rbx, " << rvalue << std::endl;
+					out << "div rbx" << std::endl;
 				}
 			}
-			
+			else {
+				if (token[1] == "+")
+					out << "add rax, [" << rvalue << "]" << std::endl;
+				if (token[1] == "-")
+					out << "sub rax, [" << rvalue << "]" << std::endl;
+				if (token[1] == "*") {
+					out << "mov rbx, [" << rvalue << "]" << std::endl;
+					out << "mul rbx" << std::endl;
+				}
+				if (token[1] == "/") {
+					out << "mov rbx, [" << rvalue << "]" << std::endl;
+					out << "div rbx" << std::endl;
+				}
+			}
+				
 			//Restore default values
 			token[0] = "";
 			
@@ -308,6 +313,11 @@ const std::string &sscope) {
 		if (not isnum[0]) {
 			if (isglobal[0]) lvalue = "G_" + token[0];
 			else lvalue = sscope + token[0];
+			
+			if (cdata.d8m.count(lvalue)) 	reg_ax = "al";
+			if (cdata.d16m.count(lvalue))	reg_ax = "ax";
+			if (cdata.d32m.count(lvalue))	reg_ax = "eax";
+			if (cdata.d64m.count(lvalue))	reg_ax = "rax";
 		}
 		
 		else {
@@ -325,9 +335,8 @@ const std::string &sscope) {
 			else                    	reg_ax = "al";
 		}
 		
-		if (isnum) {
-			out << "mov " << reg_ax << ", " << lvalue;
-		}
+		if (isnum)	out << "mov " << reg_ax << ", " << lvalue << std::endl;
+		else      	out << "mov " << reg_ax << ", [" << lvalue << "]" << std::endl;
 	}
 	
 	std::cout << "SUCCESS!" << std::endl;
