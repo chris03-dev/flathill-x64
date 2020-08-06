@@ -12,7 +12,6 @@ compilerdata::compilerdata() {
 }
 
 //Abstract syntax tree
-//Code is in dump.txt. DO NOT REMOVE.
 /*
 	
 	Note: I'm currently using an unconventional method for parsing
@@ -59,20 +58,20 @@ bool isnumeric(const std::string &s) {
 			'F'
 		};
 	
-	for (unsigned int i = 0; i < s.size(); i++) {
+	for (unsigned int i = 0; i < s.size(); ++i) {
 		//Check if binary or hex
 		if (s.size() > 2) {
+			i = 1;
 			if (s[0] == '0' and (s[1] == 'x' or s[1] == 'b')) {
-				if (i < 2) continue;
 				else if (not (alphanum.count(s[i]) or isdigit(s[i])))
 					return 0;	
 			}
 			else return 0;
 		}
+		
 		//Check if number
 		else if (not isdigit(s[i])) 
-			return 0;
-		
+			return 0;	
 	}
 	return 1;
 }
@@ -172,7 +171,7 @@ const std::string &sscope) {
 		
 		//Check if token is not an operator
 		if (tokenptr != 1) {
-			//Check if token is numeric constant
+			//Check if token is variable or number
 			if (not isnumeric(token[(tokenptr/2) * 2])) {
 				isnum[tokenptr/2] = 0;
 				
@@ -308,9 +307,11 @@ const std::string &sscope) {
 	
 	//Only if equation involves a single value
 	if (token[0] != "") {
-		string lvalue, reg_ax;
+		std::string lvalue, reg_ax;
 		
+		//Check if variable or number
 		if (not isnum[0]) {
+			//Check if token is global or stack variable
 			if (isglobal[0]) lvalue = "G_" + token[0];
 			else lvalue = sscope + token[0];
 			
@@ -319,7 +320,6 @@ const std::string &sscope) {
 			if (cdata.d32m.count(lvalue))	reg_ax = "eax";
 			if (cdata.d64m.count(lvalue))	reg_ax = "rax";
 		}
-		
 		else {
 			lvalue = token[0];
 			
@@ -335,8 +335,8 @@ const std::string &sscope) {
 			else                    	reg_ax = "al";
 		}
 		
-		if (isnum)	out << "mov " << reg_ax << ", " << lvalue << std::endl;
-		else      	out << "mov " << reg_ax << ", [" << lvalue << "]" << std::endl;
+		if (isnum[0])	out << "mov " << reg_ax << ", " << lvalue << std::endl;
+		else         	out << "mov " << reg_ax << ", [" << lvalue << "]" << std::endl;
 	}
 	
 	std::cout << "SUCCESS!" << std::endl;
