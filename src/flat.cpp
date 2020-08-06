@@ -30,7 +30,6 @@ int main(int argc, char **argv) {
 		
 		//Open and read input file
 		input.open(argv[1]);
-		
 		{
 			string s;
 			while (getline(input, s))
@@ -195,7 +194,7 @@ int main(int argc, char **argv) {
 				string 
 					rscope,
 					lvalue,				//Get left variable of operation
-					reg_ax;				//ax register size
+					reg_ax;				//ax register size, get size of lvalue
 				
 				rscope = scope;
 				lvalue = lexer(linetmp);
@@ -208,7 +207,7 @@ int main(int argc, char **argv) {
 				or cdata.d16m.count("G_" + lvalue)
 				or cdata.d32m.count("G_" + lvalue)
 				or cdata.d64m.count("G_" + lvalue))
-					isglobal[0] = 1;
+					isglobal = 1;
 
 				else if (
 				not (cdata.d8m.count(scope + lvalue)
@@ -219,7 +218,7 @@ int main(int argc, char **argv) {
 					return 1;
 				}
 				
-				//Check if rvalue is global or stack variable
+				//Check size of variable
 				if (isglobal)	lvalue = "G_" + lvalue;
 				else         	lvalue = scope + lvalue;
 				
@@ -263,6 +262,7 @@ int main(int argc, char **argv) {
 					cout << "Dec scope." << endl;
 					
 					if (stacklv) {
+						outtext << endl;
 						outtext << "add rsp, " << stacklv << endl;
 						outtext << "pop rbp" << endl;
 						
