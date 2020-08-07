@@ -1,3 +1,6 @@
+// The following source code is licensed under the BSD 2-Clause Patent License.\
+   Please read LICENSE.md for details.
+
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -25,21 +28,6 @@ compilerdata::compilerdata() {
 	
 */
 
-//Skip whitespace for new token
-std::string nextword(const std::string &s, int n) {
-	while (
-		s[n] == ' ' or 
-		s[n] == '\n' or 
-		s[n] == '\r' or 
-		s[n] == '\t' or
-		s[n] == ':' or
-		s[n] == ';'
-	)
-		++n;
-		
-	return s.substr(n, s.length() - n);
-}
-
 //Check if std::string is numeric
 bool isnumeric(const std::string &s) {
 	const static std::set<char>
@@ -63,7 +51,7 @@ bool isnumeric(const std::string &s) {
 		if (s.size() > 2) {
 			i = 1;
 			if (s[0] == '0' and (s[1] == 'x' or s[1] == 'b')) {
-				else if (not (alphanum.count(s[i]) or isdigit(s[i])))
+				if (not (alphanum.count(s[i]) or isdigit(s[i])))
 					return 0;	
 			}
 			else return 0;
@@ -76,7 +64,54 @@ bool isnumeric(const std::string &s) {
 	return 1;
 }
 
-//Get token/word in a string
+char quotechar = 0;		//Used to check if inside a quote
+
+//Check if found outside quotes
+unsigned int findnoq(const std::string &s, const char c) {
+	//Get position of substring
+	for (unsigned int i = 0; i < s.size(); ++i) {
+		if (not quotechar) {
+			if (s[i] == c) return i;
+			if (s[i] == '\'' or s[i] == '"') quotechar = s[i];
+		}
+		else if (quotechar == s[i]) quotechar = 0;
+	}
+	return s.size();
+}
+//Check if found outside quotes
+unsigned int findnoq(const std::string &s, std::string f) {
+	
+	//Get position of substring
+	for (unsigned int i = 0; i < s.size(); ++i) {
+		if (not quotechar) {
+			if (s.substr(i, s.size() - i).find(f) == 0) {
+				//std::cout << "SUCESS!	" << i << std::endl;
+				return i;
+			}
+			if (s[i] == '\'' or s[i] == '"') quotechar = s[i];
+		}
+		else if (quotechar == s[i]) quotechar = 0;
+	}
+	
+	return s.size();
+}
+
+//Skip whitespace for new token
+std::string nextword(const std::string &s, int n) {
+	while (
+		s[n] == ' ' or 
+		s[n] == '\n' or 
+		s[n] == '\r' or 
+		s[n] == '\t' or
+		s[n] == ':' or
+		s[n] == ';'
+	)
+		++n;
+	
+	return s.substr(n, s.length() - n);
+}
+
+//Get token or word in a string
 std::string lexer(const std::string &s) {
 	unsigned int n = 0;
 	while (
@@ -96,41 +131,27 @@ std::string lexer(const std::string &s) {
 
 //Remove comments
 std::string removecom(std::string s) {
-	static bool multiline = 0;		//Check if multiline comment
-	static char instringid = 0;		//Identify std::string
+	static bool incom = 0;		//For multiline comments
 	
-	for (unsigned int i = 0; i < s.size(); ++i) {
-		if (not multiline and (s[i] == '"' or s[i] == '\'')) {
-			if (instringid == s[i])
-				instringid = 0;
-			else instringid = s[i];
-		}
-		
-		if (instringid == 0) {
-			//Check if single-line comment exists
-			if (s.find('#') < s.size()) {
-				s = s.substr(0, s.find('#'));
-				break;
-			}
-			
-			//Check if inside multiline comment
-			if (not multiline) {
-				if (s.find("_<") < s.size()) {
-					s = s.substr(0, s.find("_<"));
-					multiline = 1;
-				}
-			} 
-			else {
-				if (s.find(">_") < s.size()) {
-					s = s.substr(s.find(">_") + 2, s.size() - s.find(">_") - 2);
-					multiline = 0;
-				}
-				else {
-					s = "";
-				}
-			}
-		}
+	//Check if single-line comment exists
+	if (findnoq(s, '#') < s.size())
+		return s.substr(0, findnoq(s, '#'));
+	
+	//Check if multiline comment exists
+	if (findnoq(s, "_<") < s.size()) {
+		incom = 1;
+		return s.substr(0, s.find("_<"));
 	}
+	else if (incom) {
+		quotechar = 0;
+		
+		if (findnoq(s, ">_") < s.size()) {
+			incom = 0;
+			return s.substr(findnoq(s, ">_") + 2, s.size() - findnoq(s, ">_") - 2);
+		}
+		else return "";
+	}
+
 	return s;
 }
 

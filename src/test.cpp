@@ -1,3 +1,6 @@
+// The following source code is licensed under the BSD 2-Clause Patent License.\
+   Please read LICENSE.md for details.
+
 #include <iostream>
 #include <sstream>
 #include <fstream>

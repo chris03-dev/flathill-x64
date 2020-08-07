@@ -1,3 +1,8 @@
+/*
+	The following source code is licensed under the BSD 2-Clause Patent License.
+	Please read LICENSE.md for details.
+*/
+
 #include <map>
 
 struct compilerdata {
@@ -10,8 +15,12 @@ struct compilerdata {
 	compilerdata();
 };
 
-std::string nextword(const std::string &, int);
+extern char quotechar;
+
 bool isnumeric(const std::string &);
+unsigned int findnoq(const std::string &s, const char c);
+unsigned int findnoq(const std::string &s, std::string f);
+std::string nextword(const std::string &, int);
 std::string lexer(const std::string &);
 std::string removecom(std::string);
 int lexereq(std::stringstream &, compilerdata &, std::string, const std::string &);

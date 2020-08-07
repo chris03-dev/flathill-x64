@@ -1,3 +1,8 @@
+/*
+	The following source code is licensed under the BSD 2-Clause Patent License.
+	Please read LICENSE.md for details.
+*/
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -83,9 +88,9 @@ int main(int argc, char **argv) {
 			cout << flinenum << "	(" << scopelv << "):	" << line << "		" << endl;	
 			
 			//Scope increment and declaration
-			if (linetmp.find(':') < linetmp.size()) {
+			if (findnoq(linetmp, ':') < linetmp.size()) {
 				scopelv++;
-				scope = scope.substr(0, scope.find("_S") + 2) + to_string(scopelv) + "_@N";
+				scope = scope.substr(0, findnoq(scope, "_S") + 2) + to_string(scopelv) + "_@N";
 				cout << "Inc scope." << endl;
 			}
 			
@@ -93,6 +98,7 @@ int main(int argc, char **argv) {
 			if (scope == "G_") {
 				if (linetmp.substr(0, 2) == "d8") {
 					string varname = scope + lexer(nextword(line, 2));
+					cout << "d8 " << varname << "\n";
 					
 					cdata.d8m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 				}
@@ -140,7 +146,7 @@ int main(int argc, char **argv) {
 				//Check end of function
 				while (scopelvtmp > 0) {
 					string 
-						fnline = nextword(*itfn, 0);
+						fnline = nextword(*itfn, 0),
 						varname;
 					
 					//Stack variable declaration
@@ -169,11 +175,11 @@ int main(int argc, char **argv) {
 						cdata.d64m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 					}
 					
-					if (fnline.find(':') < fnline.size()) {
+					if (findnoq(fnline, ':') < fnline.size()) {
 						cout << "COL\n";
 						scopelvtmp++;
 					}
-					if (fnline.find(';') < fnline.size()) {
+					if (findnoq(fnline, ';') < fnline.size()) {
 						cout << "SCOLN\n";
 						scopelvtmp--;
 					}
@@ -190,7 +196,7 @@ int main(int argc, char **argv) {
 			
 			//Arithmetic parsing
 			string equ = lexer(nextword(linetmp.substr(lexer(linetmp).size(), linetmp.size() - lexer(linetmp).size()), 0));
-			if (equ.find('=') < equ.size()) {
+			if (findnoq(equ, '=') < equ.size()) {
 				string 
 					rscope,
 					lvalue,				//Get left variable of operation
@@ -255,7 +261,7 @@ int main(int argc, char **argv) {
 			//Method keywords
 			
 			//Function end, scope decrement
-			if (linetmp.find(";") < linetmp.size()) {
+			if (findnoq(linetmp, ";") < linetmp.size()) {
 				scopelv--;
 				if (scopelv < 1) {
 					scope = "G_";
@@ -346,5 +352,6 @@ int main(int argc, char **argv) {
 	else {
 		cerr << "No input detected." << endl;
 	}
+	
 	return 0;
 }
