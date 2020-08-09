@@ -8,13 +8,13 @@ Its compiler is currently in a very early stage, so it should NOT be considered 
 
 - Scopes
 	- Functions
-		- Non-return functions
-- Values
-	- Global variables (soon)
+	- Objects (soon)
+- Variable declaration
+	- Global variables (incomplete)
 	- Stack variables
 - Basic equation parsing
 	- Values
-		- Numeric constants 
+		- Numeric constants
 		- Global variables
 		- Stack variables
 	- Operators
@@ -22,5 +22,5 @@ Its compiler is currently in a very early stage, so it should NOT be considered 
 		- Subtract
 		- Multiply
 		- Divide
-		
-Contributions and forks are not yet allowed.
+	- Miscellaneous
+		- Parenthesis recursion
