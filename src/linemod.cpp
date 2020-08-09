@@ -30,7 +30,7 @@ compilerdata::compilerdata() {
 	
 */
 
-//Check if std::string is numeric
+//Check if std::string is a number
 bool isnumeric(const std::string &s) {
 	const static std::set<char>
 		alphanum = {
@@ -69,7 +69,7 @@ bool isnumeric(const std::string &s) {
 char quotechar = 0;		//Used to check if inside a quote
 
 //Check if found outside quotes
-unsigned int findnoq(const std::string &s, const char c) {
+unsigned int findnoq(const std::string &s, const char &c) {
 	//Get position of substring
 	for (unsigned int i = 0; i < s.size(); ++i) {
 		if (not quotechar) {
@@ -81,7 +81,7 @@ unsigned int findnoq(const std::string &s, const char c) {
 	return s.size();
 }
 //Check if found outside quotes
-unsigned int findnoq(const std::string &s, std::string f) {
+unsigned int findnoq(const std::string &s, const std::string &f) {
 	
 	//Get position of substring
 	for (unsigned int i = 0; i < s.size(); ++i) {
@@ -142,7 +142,7 @@ std::string removecom(std::string s) {
 	//Check if multiline comment exists
 	if (findnoq(s, "_<") < s.size()) {
 		incom = 1;
-		return s.substr(0, s.find("_<"));
+		return s.substr(0, findnoq(s, "_<"));
 	}
 	else if (incom) {
 		quotechar = 0;
@@ -160,10 +160,13 @@ std::string removecom(std::string s) {
 //Parse equations without need for AST (explanation below end of function)
 int lexereq(
 std::stringstream &out, 
-compilerdata &cdata,
+const compilerdata &cdata,
 std::string s, 
 const std::string &sscope) {
-	unsigned int tokenptr = 0;			//Pointer for set of tokens
+	unsigned int 
+		tokenptr = 0,			//Pointer for set of tokens
+		lexcount = 0,  			//Get lexercount of equation
+		varlexc[2] = {0, 0};	//Get lexercount of lvalue and rvalue
 	
 	std::string token[3];				//All 3 tokens are used in 1st operation,
 										//and the last 2 are used in subsequent operations
@@ -180,22 +183,66 @@ const std::string &sscope) {
 		};
 	bool 
 		isglobal[2] = {0, 0},
-		isnum[2] = {1, 1};
+		isnum[2] = {1, 1},
+		isequ[2] = {0, 0},
+		equend = 0;
+	
 	
 	std::cout << "START" << std::endl;
+	out << "xor rax, rax" << std::endl;
 	
-	for (std::string lex = lexer(s); 
+	for (
+		std::string lex = lexer(s); 
 	    lex != "\0"; 
+		++lexcount,
 	    s = nextword(s.substr(lex.size(), s.size() - lex.size()), 0),
-	    lex = lexer(s)) 
-	{
-		token[tokenptr] = lexer(s);
-		std::cout << "TOKEN[" << tokenptr << "]:	'" << token[tokenptr] << "' : '" << s << "'" << std::endl;
+	    lex = lexer(s)
+	) {
+		token[tokenptr] = lex;
+		std::cout << "TOKENA[" << tokenptr << "]:	'" << token[tokenptr] << "' : '" << s << "'	:	" << lexcount << std::endl;
 		
 		//Check if token is not an operator
 		if (tokenptr != 1) {
+			//Check if token leads to another equation
+			if (token[(tokenptr/2) * 2].find("(") < token[(tokenptr/2) * 2].size()) {
+				isequ[tokenptr/2] = 1;
+				
+				if (tokenptr/2 == 1) out << "push rax" << std::endl;
+				
+				//Check if parenthesis is separate from token
+				if (token[(tokenptr/2) * 2] == "(") {
+					s = nextword(s, 1);
+					varlexc[tokenptr/2] = 1 + lexereq(out, cdata, s, sscope);
+				}
+				else varlexc[tokenptr/2] = lexereq(out, cdata, s.substr(1, s.size() - 1), sscope);
+				
+				std::cout << "LEXC:	" << s << "	:	" << varlexc[tokenptr/2] << " + " << lexcount << std::endl;
+				
+				lexcount += varlexc[tokenptr/2];
+				
+				//Remove all tokens inside parenthesized equation
+				for (; varlexc[tokenptr/2] > 0; --varlexc[tokenptr/2]) {
+					std::string l = lexer(nextword(s, 0));
+					if (l.find(")"))
+						s = nextword(s, l.size());
+					else
+						s = nextword(s, l.size());
+				}
+				
+				std::cout << "STRFT:	" << s << std::endl;
+				
+			}
+			
+			//Check if token is end of the parenthesized equation
+			else if (tokenptr == 2) {
+				if (token[2].find(")") < token[(tokenptr/2) * 2].size()) {
+					token[2] = token[2].substr(0, token[2].find(')'));
+					equend = 1;
+				}
+			}
+			
 			//Check if token is variable or number
-			if (not isnumeric(token[(tokenptr/2) * 2])) {
+			else if (not isnumeric(token[(tokenptr/2) * 2])) {
 				isnum[tokenptr/2] = 0;
 				
 				//Check if token is global or stack variable
@@ -215,10 +262,18 @@ const std::string &sscope) {
 				}
 			}
 		}
+		//Check if valid operator
 		else if (not operators.count(token[1])) {
+			if (token[1].find(")") < token[1].size()) {
+				std::cout << "Hmm..." << std::endl;
+				return lexcount - 1;
+			}
+			
 			std::cerr << "Error: '" << token[1] << "' is not an operator." << std::endl;
 			return 0;
 		}
+		
+		std::cout << "TOKENB[" << tokenptr << "]:	'" << token[tokenptr] << "' : '" << s << "'	:	" << lexcount << std::endl;
 		
 		//Determine if operation is ready to parse
 		if (tokenptr < 2) ++tokenptr;
@@ -232,7 +287,7 @@ const std::string &sscope) {
 				rvarsize;
 			
 			//First token
-			if (token[0] != "") {
+			if (token[0] != "" and not isequ[0]) {
 				if (not isnum[0]) {
 					if (isglobal[0]) lvalue = "G_" + token[0];
 					else lvalue = sscope + token[0];
@@ -241,6 +296,8 @@ const std::string &sscope) {
 					if (cdata.d16m.count(lvalue))	reg_ax = "ax";
 					if (cdata.d32m.count(lvalue))	reg_ax = "eax";
 					if (cdata.d64m.count(lvalue))	reg_ax = "rax";
+					
+					lvalue = "[" + lvalue + "]";
 				}
 				else {
 					lvalue = token[0];
@@ -251,44 +308,58 @@ const std::string &sscope) {
 						vcomp = std::stoul(lvalue, nullptr, 16);
 					else vcomp = std::stoi(lvalue.c_str());
 					
-					if (vcomp > 0xffffffff) 	reg_ax = "rbx";
-					else if (vcomp > 0xffff)	reg_ax = "ebx";
-					else if (vcomp > 0xff)  	reg_ax = "bx";
-					else                    	reg_ax = "bl";
+					if (vcomp > 0xffffffff) 	reg_ax = "rax";
+					else if (vcomp > 0xffff)	reg_ax = "eax";
+					else if (vcomp > 0xff)  	reg_ax = "ax";
+					else                    	reg_ax = "al";
 				}
 			}
 			
 			//Second token
-			if (not isnum[1]) {
-				if (isglobal[1]) rvalue = "G_" + token[2];
-				else rvalue = sscope + token[2];
+			if (not isequ[1]) {
+				if (not isnum[1]) {
+					if (isglobal[1]) rvalue = "G_" + token[2];
+					else rvalue = sscope + token[2];
+					
+					rvalue = "[" + rvalue + "]";
+				}
+				else {
+					rvalue = token[2];
+					
+					unsigned int vcomp;
+					
+					if (rvalue[0] == '0' and (rvalue[1] == 'x' or rvalue[1] == 'b'))
+						vcomp = std::stoul(rvalue, nullptr, 16);
+					else vcomp = std::stoi(rvalue.c_str());
+					
+					if (vcomp > 0xffffffff) 	reg_bx = "rbx";
+					else if (vcomp > 0xffff)	reg_bx = "ebx";
+					else if (vcomp > 0xff)  	reg_bx = "bx";
+					else                    	reg_bx = "bl";
+				}
+			}
+			
+			//std::cout << "EQUATE: '" << s << "'" << std::endl;
+			std::cout << "LVALUE:	'" << lvalue << "'" << std::endl;
+			std::cout << "RVALUE:	'" << rvalue << "'" << std::endl;
+		
+			//PARSE THE OPERATION!
+			if (isequ[1]) {
+				out << "mov rbx, rax" << std::endl;
+				out << "pop rax" << std::endl;
+			}
+			
+			if (not isequ[0] and token[0] != "") {
+				out << "mov " << reg_ax << ", " << lvalue << std::endl;
+			}
+			
+			if (isequ[1]) {
+				if (token[1] == "+") out << "add rax, rbx" << std::endl;
+				if (token[1] == "-") out << "sub rax, rbx" << std::endl;
+				if (token[1] == "*") out << "mul rbx" << std::endl;
+				if (token[1] == "/") out << "div rbx" << std::endl;
 			}
 			else {
-				rvalue = token[2];
-				
-				unsigned int vcomp;
-				
-				if (rvalue[0] == '0' and (rvalue[1] == 'x' or rvalue[1] == 'b'))
-					vcomp = std::stoul(rvalue, nullptr, 16);
-				else vcomp = std::stoi(rvalue.c_str());
-				
-				if (vcomp > 0xffffffff) 	reg_bx = "rbx";
-				else if (vcomp > 0xffff)	reg_bx = "ebx";
-				else if (vcomp > 0xff)  	reg_bx = "bx";
-				else                    	reg_bx = "bl";
-			}
-			
-			std::cout << "LVALUE:	" << lvalue << std::endl;
-			std::cout << "RVALUE:	" << rvalue << std::endl;
-			
-			//PARSE THE OPERATION!
-			if (token[0] != "") {
-				if (isnum[0])	out << "mov " << reg_ax << ", " << lvalue << std::endl;
-				else         	out << "mov " << reg_ax << ", [" << lvalue << "]" << std::endl;
-				
-				token[0] == "";
-			}
-			if (isnum[1]) {
 				if (token[1] == "+")
 					out << "add rax, " << rvalue << std::endl;
 				if (token[1] == "-")
@@ -302,28 +373,18 @@ const std::string &sscope) {
 					out << "div rbx" << std::endl;
 				}
 			}
-			else {
-				if (token[1] == "+")
-					out << "add rax, [" << rvalue << "]" << std::endl;
-				if (token[1] == "-")
-					out << "sub rax, [" << rvalue << "]" << std::endl;
-				if (token[1] == "*") {
-					out << "mov rbx, [" << rvalue << "]" << std::endl;
-					out << "mul rbx" << std::endl;
-				}
-				if (token[1] == "/") {
-					out << "mov rbx, [" << rvalue << "]" << std::endl;
-					out << "div rbx" << std::endl;
-				}
-			}
-				
-			//Restore default values
-			token[0] = "";
 			
-			isnum[0] = 1;
+			if (equend) {
+				std::cout << "EQEND SUCCESS" << std::endl;
+				return lexcount;
+			}
+			
+			//Restore default values, never use token[0] again
+			token[0] = "";
 			isnum[1] = 1;
-			isglobal[0] = 0;
 			isglobal[1] = 0;
+			isequ[1] = 0;
+			
 			tokenptr = 1;
 		}
 	}
@@ -342,6 +403,8 @@ const std::string &sscope) {
 			if (cdata.d16m.count(lvalue))	reg_ax = "ax";
 			if (cdata.d32m.count(lvalue))	reg_ax = "eax";
 			if (cdata.d64m.count(lvalue))	reg_ax = "rax";
+			
+			lvalue = "[" + lvalue + "]";
 		}
 		else {
 			lvalue = token[0];
@@ -358,8 +421,7 @@ const std::string &sscope) {
 			else                    	reg_ax = "al";
 		}
 		
-		if (isnum[0])	out << "mov " << reg_ax << ", " << lvalue << std::endl;
-		else         	out << "mov " << reg_ax << ", [" << lvalue << "]" << std::endl;
+		out << "mov " << reg_ax << ", " << lvalue << std::endl;
 	}
 	
 	std::cout << "SUCCESS!" << std::endl;

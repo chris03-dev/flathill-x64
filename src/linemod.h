@@ -18,9 +18,9 @@ struct compilerdata {
 extern char quotechar;
 
 bool isnumeric(const std::string &);
-unsigned int findnoq(const std::string &s, const char c);
-unsigned int findnoq(const std::string &s, std::string f);
+unsigned int findnoq(const std::string &s, const char &c);
+unsigned int findnoq(const std::string &s, const std::string &f);
 std::string nextword(const std::string &, int);
 std::string lexer(const std::string &);
 std::string removecom(std::string);
-int lexereq(std::stringstream &, compilerdata &, std::string, const std::string &);
+int lexereq(std::stringstream &, const compilerdata &, std::string, const std::string &);
