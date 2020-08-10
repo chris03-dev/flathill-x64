@@ -1,7 +1,7 @@
 /*
 	Copyright (c) 2020, chris03-dev
 	
-	The following source code is licensed under the BSD 2-Clause Patent License.
+	The following source code is licensed under the UPL-v1.0.
 	Please read LICENSE.md for details.
 */
 
