@@ -1,0 +1,25 @@
+ico ICON "flat-icon.ico"
+
+1 VERSIONINFO
+FILEVERSION     0,2,2,0
+PRODUCTVERSION  0,2,2,0
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904E4"
+    BEGIN
+      VALUE "CompanyName", ""
+      VALUE "FileDescription", "Compiles .flat files to fasm (flat assembler) input."
+      VALUE "FileVersion", "0.2.2-alpha"
+      VALUE "InternalName", "flathill-x64"
+      VALUE "LegalCopyright", "chris03-dev"
+      VALUE "OriginalFilename", "flat.exe"
+      VALUE "ProductName", "flathill"
+      VALUE "ProductVersion", "0.2.2-alpha"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1252
+  END
+END
