@@ -2,7 +2,7 @@
 
 All source code until v0.2.1-alpha are licensed under the BSD 2-Clause Patent license.
 
-All source code since v0.2.2-alpha will be under the Universal Permissive License, version 1.0.
+All source code starting v0.3.0-alpha will be under the Universal Permissive License, version 1.0.
 
 ---
 
