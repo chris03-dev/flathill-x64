@@ -124,6 +124,35 @@ int main(int argc, char **argv) {
 					
 					cdata.d64m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 				}
+				
+				if (linetmp.substr(0, 4) == "ptr8") {
+					datadecl = 1;
+					string varname = scope + lexer(nextword(line, 4));
+					cout << "ptr8 " << varname << "\n";
+					
+					cdata.ptr8m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
+				}
+				if (linetmp.substr(0, 5) == "ptr16") {
+					datadecl = 1;
+					string varname = scope + lexer(nextword(line, 5));
+					cout << "ptr16 " << varname << "\n";
+					
+					cdata.ptr16m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
+				}
+				if (linetmp.substr(0, 5) == "ptr32") {
+					datadecl = 1;
+					string varname = scope + lexer(nextword(line, 5));
+					cout << "ptr32 " << varname << "\n";
+					
+					cdata.ptr32m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
+				}
+				if (linetmp.substr(0, 5) == "ptr64") {
+					datadecl = 1;
+					string varname = scope + lexer(nextword(line, 5));
+					cout << "ptr64 " << varname << "\n";
+					
+					cdata.ptr64m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
+				}
 			}
 			
 			//Check if line is object declaration
@@ -134,7 +163,6 @@ int main(int argc, char **argv) {
 				//Used to find all stack variables
 				outtext << lexer(nextword(linetmp, 2)) << ":" << endl;
 				
-				cout << "Scopelv:	" << scopelv << endl;
 				cout << "Scope: 	F_" << lexer(nextword(linetmp, 2)) << "_@N" << endl;
 				scope = "F_" + lexer(nextword(linetmp, 2)) + "_@N";
 				
@@ -179,14 +207,34 @@ int main(int argc, char **argv) {
 						cdata.d64m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 					}
 					
-					if (findnoq(fnline, ':') < fnline.size()) {
-						cout << "COL\n";
-						scopelvtmp++;
+					//Pointer declaration
+					if (fnline.substr(0, 4) == "ptr8") {
+						varname = scope + lexer(nextword(fnline, 4));
+						
+						stacklv += 8;
+						cdata.ptr8m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 					}
-					if (findnoq(fnline, ';') < fnline.size()) {
-						cout << "SCOLN\n";
-						scopelvtmp--;
+					if (fnline.substr(0, 5) == "ptr16") {
+						varname = scope + lexer(nextword(fnline, 5));
+						
+						stacklv += 8;
+						cdata.ptr16m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 					}
+					if (fnline.substr(0, 5) == "ptr32") {
+						varname = scope + lexer(nextword(fnline, 5));
+						
+						stacklv += 8;
+						cdata.ptr32m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
+					}
+					if (fnline.substr(0, 5) == "ptr64") {
+						varname = scope + lexer(nextword(fnline, 5));
+						
+						stacklv += 8;
+						cdata.ptr64m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
+					}
+					
+					if (findnoq(fnline, ':') < fnline.size()) scopelvtmp++;
+					if (findnoq(fnline, ';') < fnline.size()) scopelvtmp--;
 					
 					advance(itfn, 1);
 				}
@@ -198,16 +246,70 @@ int main(int argc, char **argv) {
 				}
 			}
 			
+			//Check non-return function call
+			if (linetmp[0] == '$') {
+				linetmp = linetmp.substr(1, linetmp.size() - 1);
+				
+				string 
+					fnname, 	//Get function name to call
+					reg_xx; 	//Get register for storing parameters
+					
+				string param;
+				unsigned int largc = 0;	//Get parameter count
+				
+				fnname = linetmp.substr(0, linetmp.find('['));
+				linetmp = nextword(linetmp, fnname.size() + 1);
+				
+				//Get parameters
+				for (param = 
+				    (findnoq(linetmp, ',') < findnoq(linetmp, ']')) ?
+				    	linetmp.substr(0, findnoq(linetmp, ',')) :
+				    	linetmp.substr(0, findnoq(linetmp, ']'));
+				     param != "";
+					 ++largc,
+				     linetmp = nextword(linetmp, param.size() + 1),					 
+				     param = (findnoq(linetmp, ',') < findnoq(linetmp, ']')) ?
+				     	linetmp.substr(0, findnoq(linetmp, ',')) :
+				     	linetmp.substr(0, findnoq(linetmp, ']'))
+				) {
+					lexereq(outtext, cdata, param, scope);
+					
+					//Set register based on parameter
+					switch (largc) {
+						#if _WIN32
+						case 0: reg_xx = "rcx"; break;
+						case 1: reg_xx = "rdx"; break;
+						case 2: reg_xx = "r8";  break;
+						case 3: reg_xx = "r9";  break;
+						#endif
+						#if __linux__
+						case 0: reg_xx = "rdi"; break;
+						case 1: reg_xx = "rsi"; break;
+						case 2: reg_xx = "rdx"; break;
+						case 3: reg_xx = "rcx"; break;
+						case 4: reg_xx = "r8";  break;
+						case 5: reg_xx = "r9";  break;
+						#endif
+						default:
+							outtext << "push rax" << endl;
+							break;
+					}
+						
+					outtext << "mov " << reg_xx << ", rax" << endl;
+				}
+				
+				//Call the function
+				outtext << "call " << fnname << endl;
+			}
+			
 			//Arithmetic parsing
 			if (scope != "G_") {
 				string equ = lexer(nextword(linetmp.substr(lexer(linetmp).size(), linetmp.size() - lexer(linetmp).size()), 0));
 				if (findnoq(equ, '=') < equ.size()) {
 					string 
-						rscope,
 						lvalue,				//Get left variable of operation
 						reg_ax;				//ax register size, get size of lvalue
 					
-					rscope = scope;
 					lvalue = lexer(linetmp);
 					linetmp = nextword(nextword(linetmp, lvalue.size()), equ.size());
 					
@@ -217,14 +319,22 @@ int main(int argc, char **argv) {
 					if (cdata.d8m.count("G_" + lvalue)
 					or cdata.d16m.count("G_" + lvalue)
 					or cdata.d32m.count("G_" + lvalue)
-					or cdata.d64m.count("G_" + lvalue))
+					or cdata.d64m.count("G_" + lvalue)
+					or cdata.ptr8m.count("G_" + lvalue) 
+					or cdata.ptr16m.count("G_" + lvalue) 
+					or cdata.ptr32m.count("G_" + lvalue)
+					or cdata.ptr64m.count("G_" + lvalue))
 						isglobal = 1;
 
 					else if (
 					not (cdata.d8m.count(scope + lvalue)
 					or cdata.d16m.count(scope + lvalue)
 					or cdata.d32m.count(scope + lvalue)
-					or cdata.d64m.count(scope + lvalue))) {
+					or cdata.d64m.count(scope + lvalue)
+					or cdata.ptr8m.count(scope + lvalue) 
+					or cdata.ptr16m.count(scope + lvalue) 
+					or cdata.ptr32m.count(scope + lvalue)
+					or cdata.ptr64m.count(scope + lvalue))) {
 						cerr << "Error: Variable '" << lvalue << "' not found." << endl;
 						return 1;
 					}
@@ -236,10 +346,16 @@ int main(int argc, char **argv) {
 					if (cdata.d8m.count(lvalue)) 	reg_ax = "al";
 					if (cdata.d16m.count(lvalue))	reg_ax = "ax";
 					if (cdata.d32m.count(lvalue))	reg_ax = "eax";
-					if (cdata.d64m.count(lvalue))	reg_ax = "rax";
+					if (cdata.d64m.count(lvalue) or
+					    cdata.ptr8m.count(lvalue) or 
+					    cdata.ptr16m.count(lvalue) or
+					    cdata.ptr32m.count(lvalue) or
+					    cdata.ptr64m.count(lvalue))	
+						reg_ax = "rax";
+					
 					
 					//Parse the equation
-					outtext << endl;
+					outtext << "\nxor rax, rax" << endl;
 					lexereq(outtext, cdata, linetmp, scope);
 					
 					//Regular operators
@@ -262,38 +378,50 @@ int main(int argc, char **argv) {
 					if (equ == "&=")	outtext << "and " << "[" << lvalue << "], " << reg_ax << endl;
 					if (equ == "|=")	outtext << "or " << "[" << lvalue << "], " << reg_ax << endl;
 					if (equ == "~=")	outtext << "not " << "[" << lvalue << "], " << reg_ax << endl;
-					if (equ == "\\=")	outtext << "xor " << "[" << lvalue << "], " << reg_ax << endl;
+					if (equ == "%=")	outtext << "xor " << "[" << lvalue << "], " << reg_ax << endl;
+					
+					//Reference operators
+					if (cdata.ptr8m.count(lvalue)
+					or cdata.ptr16m.count(lvalue)
+					or cdata.ptr32m.count(lvalue)
+					or cdata.ptr64m.count(lvalue)) {
+						if (equ == "@=")	outtext << "lea " << "[" << lvalue << "], [" << reg_ax << "]" << endl;
+						if (equ == "$=")	outtext << "mov " << "[" << lvalue << "], [" << reg_ax << "]" << endl;
+					}
+					else {
+						if (equ == "@=" or equ == "$=")	{
+							cerr << "Error: Variable '" << lvalue << "' is not a pointer." << endl;
+							return 1;
+						}
+					}
 					
 					continue;
 				}
 			}
 			
-			//Function keywords
-			
 			//Method keywords
-			
-			//Function end, scope decrement
-			if (findnoq(linetmp, ";") < linetmp.size()) {
-				scopelv--;
-				if (scopelv < 1) {
-					scope = "G_";
-					cout << "Dec scope." << endl;
-					
-					if (stacklv) {
-						outtext << endl;
-						outtext << "add rsp, " << stacklv << endl;
-						outtext << "pop rbp" << endl;
-						
-						stacklv = 0;
-					}
-				}
-			}
 			
 			//Reserved keywords
 			if (linetmp.substr(0, 3) == "ret") {
+				linetmp = linetmp.substr(4, findnoq(linetmp, ';'));
+				if (linetmp.size() > 0) lexereq(outtext, cdata, linetmp, scope);
+				
+				if (stacklv) {
+					outtext << endl;
+					outtext << "add rsp, " << stacklv << endl;
+					outtext << "pop rbp" << endl;
+					
+					stacklv = 0;
+				}
+				
 				outtext << "ret " << endl;
 			}
-			if (linetmp.substr(0, 7) == "endproc") {
+			else if (linetmp.substr(0, 7) == "endproc") {
+				if (stacklv) {
+					outtext << endl;
+					outtext << "add rsp, " << stacklv << endl;
+					outtext << "pop rbp" << endl;
+				}
 				#ifdef _WIN32
 				outtext << "mov rcx, 0" << endl;
 				outtext << "call [ExitProcess]" << endl;
@@ -302,6 +430,23 @@ int main(int argc, char **argv) {
 				outtext << "mov rax, 60" << endl;
 				outtext << "syscall" << endl;
 				#endif
+			}
+			
+			//Function end, scope decrement
+			if (findnoq(linetmp, ";") < linetmp.size()) {
+				scopelv--;
+				if (scopelv < 1) {
+					scope = "G_";
+					cout << "Dec scope." << endl;
+					
+					if (stacklv and not (linetmp.find("endproc") < linetmp.size())) {
+						outtext << endl;
+						outtext << "add rsp, " << stacklv << endl;
+						outtext << "pop rbp" << endl;
+						
+						stacklv = 0;
+					}
+				}
 			}
 		}
 		
@@ -343,6 +488,46 @@ int main(int argc, char **argv) {
 		}
 		
 		for (auto it = cdata.d64m.begin(); it != cdata.d64m.end(); advance(it, 1)) { 
+			//If stack variable
+			if (it->first.substr(0, 2) == "F_")
+				outdata << "define " << it->first << "	rbp - " << it->second << endl;
+			
+			//If global variable
+			else outdata << it->first << "\tdq 0" << endl;
+		}
+		
+		for (auto it = cdata.ptr8m.begin(); it != cdata.ptr8m.end(); advance(it, 1)) { 
+			cout << "PTR8:	" << it->first << endl;
+			//If stack variable
+			if (it->first.substr(0, 2) == "F_")
+				outdata << "define " << it->first << "	rbp - " << it->second << endl;
+			
+			//If global variable
+			else outdata << it->first << "\tdb 0" << endl;
+		}
+		
+		for (auto it = cdata.ptr16m.begin(); it != cdata.ptr16m.end(); advance(it, 1)) { 
+			cout << "PTR16:	" << it->first << endl;
+			//If stack variable
+			if (it->first.substr(0, 2) == "F_")
+				outdata << "define " << it->first << "	rbp - " << it->second << endl;
+			
+			//If global variable
+			else outdata << it->first << "\tdw 0" << endl;
+		}
+		
+		for (auto it = cdata.ptr32m.begin(); it != cdata.ptr32m.end(); advance(it, 1)) { 
+			cout << "PTR32:	" << it->first << endl;
+			//If stack variable
+			if (it->first.substr(0, 2) == "F_")
+				outdata << "define " << it->first << "	rbp - " << it->second << endl;
+			
+			//If global variable
+			else outdata << it->first << "\tdd 0" << endl;
+		}
+		
+		for (auto it = cdata.ptr64m.begin(); it != cdata.ptr64m.end(); advance(it, 1)) { 
+			cout << "PTR64:	" << it->first << endl;
 			//If stack variable
 			if (it->first.substr(0, 2) == "F_")
 				outdata << "define " << it->first << "	rbp - " << it->second << endl;

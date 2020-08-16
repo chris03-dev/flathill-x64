@@ -9,10 +9,8 @@
 
 struct compilerdata {
 	std::map<std::string, std::string> 
-		d8m, d16m, d32m, d64m;
-		
-	std::map<std::string, std::string>::iterator
-		d8it, d16it, d32it, d64it;
+		d8m, d16m, d32m, d64m, 
+		ptr8m, ptr16m, ptr32m, ptr64m;
 	
 	compilerdata();
 };
