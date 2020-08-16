@@ -1,0 +1,7 @@
+[Desktop Entry]
+Terminal=true
+Type=Application
+Name=flat
+Exec=/usr/local/bin/
+Icon=/usr/share/icons/flat/
+Comment[en_US]="Compiles .flat files to fasm (flat assembler) input."
