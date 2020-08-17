@@ -6,27 +6,8 @@ All source code starting v0.3.0-alpha will be under the Universal Permissive Lic
 
 ---
 
-This is an amateur hobby project about a compiler for my very own programming language.
+This is an amateur hobby project about a compiler for "flathill".
 
-"flathill" is built on C++, and its output is used as assembly input for the flat assembler (by Tomasz Grysztar). It aims to be a loosely typed, relatively close-to-metal language, with just enough basic high-level features to be usable for the majority of coders, while avoiding the complexity of other high level languages.
+"flathill" is a statically typed, high-level programming language. It aims to be compatible with the C++ x64 [Windows](https://docs.microsoft.com/en-us/cpp/build/x64-calling-convention?view=vs-2019) and [Linux](https://courses.cs.washington.edu/courses/cse378/10au/sections/Section1_recap.pdf) calling conventions. Its compiler is built with C++, and its output is used as assembly input for [flat assembler](flatassembler.net).
 
-Its compiler is currently in a very early stage, so it should NOT be considered a real development tool as of yet. Currently, it supports:
-
-- Scopes
-	- Functions
-	- Objects (soon)
-- Variable declaration
-	- Global variables (incomplete)
-	- Stack variables
-- Basic equation parsing
-	- Values
-		- Numeric constants
-		- Global variables
-		- Stack variables
-	- Operators
-		- Add
-		- Subtract
-		- Multiply
-		- Divide
-	- Miscellaneous
-		- Parenthesis recursion
+Its compiler is currently in a very early stage, so it should NOT be considered a real development tool as of yet.
