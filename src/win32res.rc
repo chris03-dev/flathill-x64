@@ -1,8 +1,8 @@
 ico ICON "flat-icon.ico"
 
 1 VERSIONINFO
-FILEVERSION     0,2,2,0
-PRODUCTVERSION  0,2,2,0
+FILEVERSION     0,3,1,0
+PRODUCTVERSION  0,3,1,0
 BEGIN
   BLOCK "StringFileInfo"
   BEGIN
@@ -10,12 +10,12 @@ BEGIN
     BEGIN
       VALUE "CompanyName", ""
       VALUE "FileDescription", "Compiles .flat files to fasm (flat assembler) input."
-      VALUE "FileVersion", "0.3.0-alpha"
+      VALUE "FileVersion", "0.3.1-alpha"
       VALUE "InternalName", "flathill-x64"
       VALUE "LegalCopyright", "chris03-dev"
       VALUE "OriginalFilename", "flat.exe"
       VALUE "ProductName", "flathill"
-      VALUE "ProductVersion", "0.3.0-alpha"
+      VALUE "ProductVersion", "0.3.1-alpha"
     END
   END
   BLOCK "VarFileInfo"
