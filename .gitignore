@@ -2,3 +2,4 @@ code/
 bin/
 zip/
 src/dump.txt
+src/win-compile-llvm.bat
