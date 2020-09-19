@@ -25,28 +25,23 @@ vartype_enum vartype;
 
 //unsigned int platf = PLATFORM_GLOBAL;
 
+vector<string> 
+	fstr,       			//List of file lines
+	fnstr;      			//Temporary list for function
+
+ifstream input; 			//Input file
+ofstream output;			//Assembly output file
+
+stringstream
+	outdata,    			//Used only for .data section in output file
+	texttmp,    			//Used only for .text section in output file
+	outtext;
+
 int main(int argc, char **argv) {
 	if (argc > 1) {
 		cout << "Input detected." << endl;
 		
-		vector<string> 
-			fstr,					//List of file lines
-			fnstr;					//Temporary list for function
-		unsigned int flinenum = 0;	//Line number
-		
-		ifstream input;				//Input file
-		stringstream
-			outdata,
-			outtext;
-		ofstream 
-			datatmp,				//Used only to create .data section file
-			texttmp,				//Used only to create .text section file
-			output;
-		
 		//Open and read input file
-		//fstr.reserve(2048);
-		//fnstr.reserve(512);
-		
 		cout << "Opening '" << argv[1] << "'..." << endl;
 		input.open(argv[1]);
 		{
@@ -93,6 +88,7 @@ int main(int argc, char **argv) {
 			line, linetmp;			//Line of input file
 			
 		unsigned int 
+			flinenum = 0, 			//Line number
 			stacklv = 0,  			//Bytes pushed in stack
 			scopelv = 0;  			//Check if number of scopes in stack
 		
@@ -166,7 +162,7 @@ int main(int argc, char **argv) {
 					outtext << line << endl;
 			}
 			else {
-				//Global
+				//Global variable declaration
 				if (scope == "G_") {
 					//Global variable declaration
 					string varname;		//Get name of variable, also used for removing tokens
@@ -174,113 +170,78 @@ int main(int argc, char **argv) {
 					if (linetmp.substr(0, 2) == "d8") {
 						datadecl = 1;
 						vartype = FH_BYTE;
-						varname = lexer(nextword(linetmp, 2));
 						cout << "d8 " << varname << "\n";
-						
-						cdata.d8m.insert(pair<string, string>(scope + varname, (string) to_string(stacklv)));
 					}
 					else if (linetmp.substr(0, 3) == "d16") {
 						datadecl = 1;
 						vartype = FH_WORD;
-						varname = lexer(nextword(linetmp, 3));
 						cout << "d16 " << varname << "\n";
-						
-						cdata.d16m.insert(pair<string, string>(scope + varname, (string) to_string(stacklv)));
 					}
 					else if (linetmp.substr(0, 3) == "d32") {
 						datadecl = 1;
 						vartype = FH_DWORD;
-						varname = lexer(nextword(linetmp, 3));
 						cout << "d32 " << varname << "\n";
-						
-						cdata.d32m.insert(pair<string, string>(scope + varname, (string) to_string(stacklv)));
 					}
 					else if (linetmp.substr(0, 3) == "d64") {
 						datadecl = 1;
 						vartype = FH_QWORD;
-						varname = lexer(nextword(linetmp, 3));
 						cout << "d64 " << varname << "\n";
-						
-						cdata.d64m.insert(pair<string, string>(scope + varname, (string) to_string(stacklv)));
-					}
-					
-					//Global pointer declaration
-					if (line.size() >= 6) {
-						if (linetmp.substr(0, 4) == "ptr8") {
-							datadecl = 1;
-							vartype = FH_PTR_BYTE;
-							varname = lexer(nextword(linetmp, 4));
-							
-							cdata.ptr8m.insert(pair<string, string>(scope + varname, (string) to_string(stacklv)));
-						}
-						else if (linetmp.substr(0, 5) == "ptr16") {
-							datadecl = 1;
-							vartype = FH_PTR_WORD;
-							varname = lexer(nextword(linetmp, 5));
-							
-							cdata.ptr16m.insert(pair<string, string>(scope + varname, (string) to_string(stacklv)));
-						}
-						else if (linetmp.substr(0, 5) == "ptr32") {
-							datadecl = 1;
-							vartype = FH_PTR_DWORD;
-							varname = lexer(nextword(linetmp, 5));
-							
-							cdata.ptr32m.insert(pair<string, string>(scope + varname, (string) to_string(stacklv)));
-						}
-						else if (linetmp.substr(0, 5) == "ptr64") {
-							datadecl = 1;
-							vartype = FH_PTR_QWORD;
-							varname = lexer(nextword(linetmp, 5));
-							cout << "ptr64 " << varname << "\n";
-							
-							cdata.ptr64m.insert(pair<string, string>(scope + varname, (string) to_string(stacklv)));
-						}
 					}
 					
 					//Remove datatype
-					if (vartype != 0) {
+					if (vartype != FH_DEFAULT) {
 						switch (vartype) {
 							case FH_BYTE:      linetmp = nextword(linetmp, 2); break;
 							case FH_WORD:
 							case FH_DWORD:
 							case FH_QWORD:     linetmp = nextword(linetmp, 3); break;
-							case FH_PTR_BYTE:  linetmp = nextword(linetmp, 4); break;
-							case FH_PTR_WORD:
-							case FH_PTR_DWORD:
-							case FH_PTR_QWORD: linetmp = nextword(linetmp, 5); break;
+							default: break;
 						}
-						//linetmp = nextword(linetmp.substr(vartype.size(), linetmp.size() - vartype.size()), 0);
 						
-						linetmp = nextword(linetmp.substr(varname.size(), linetmp.size() - varname.size()), 0);
-						cout << "HEY:	'" << linetmp << "'\n";
+						do {
+							varname = lexer(linetmp);
+							int arrsize = 1;
+							
+							while (varname.size() and isnumeric(varname)) {
+								arrsize *= stoi(varname);
+								linetmp = nextword(linetmp, varname.size());
+								varname = lexer(linetmp);
+							}
+							
+							cout << "HEY:	'" << linetmp << "'\n";
+							linetmp = nextword(linetmp, varname.size());
+							
+							//Check if variable declaration contains value/s
+							string sep = lexer(linetmp);
+							
+							if (sep.size() and sep[0] == '=' and not (arrsize - 1)) {
+								linetmp = nextword(linetmp, 1);
+								switch (vartype) {
+									case FH_BYTE:      cdata.d8m.insert(pair<string, string>(scope + varname, lexer(linetmp)));    break;
+									case FH_WORD:      cdata.d16m.insert(pair<string, string>(scope + varname, lexer(linetmp)));   break;
+									case FH_DWORD:     cdata.d32m.insert(pair<string, string>(scope + varname, lexer(linetmp)));   break;
+									case FH_QWORD:     cdata.d64m.insert(pair<string, string>(scope + varname, lexer(linetmp)));   break;
+									default: break;
+								}
+							}
+							else {
+								switch (vartype) {
+									case FH_BYTE:      cdata.d8m.insert(pair<string, string>(scope + varname, "res " + to_string(arrsize)));    break;
+									case FH_WORD:      cdata.d16m.insert(pair<string, string>(scope + varname, "res " + to_string(arrsize)));   break;
+									case FH_DWORD:     cdata.d32m.insert(pair<string, string>(scope + varname, "res " + to_string(arrsize)));   break;
+									case FH_QWORD:     cdata.d64m.insert(pair<string, string>(scope + varname, "res " + to_string(arrsize)));   break;
+									default: break;
+								}
+							}
+							
+							if (findnoq(linetmp, ',') < linetmp.size()) 
+								linetmp = nextword(linetmp, findnoq(linetmp, ',') + 1);
+							else linetmp = "";
+						}
+						while (linetmp.size());
 						
-						//Check if value
-						string equ = lexer(linetmp);
-						if (equ.size() and equ == "=") {
-							linetmp = nextword(linetmp, equ.size());
-							switch (vartype) {
-								case FH_BYTE:      cdata.d8m.insert(pair<string, string>(scope + varname, "10"));    break;
-								case FH_WORD:      cdata.d16m.insert(pair<string, string>(scope + varname, "10"));   break;
-								case FH_DWORD:     cdata.d32m.insert(pair<string, string>(scope + varname, "10"));   break;
-								case FH_QWORD:     cdata.d64m.insert(pair<string, string>(scope + varname, "10"));   break;
-								case FH_PTR_BYTE:  cdata.ptr8m.insert(pair<string, string>(scope + varname, "10"));  break;
-								case FH_PTR_WORD:  cdata.ptr16m.insert(pair<string, string>(scope + varname, "10")); break;
-								case FH_PTR_DWORD: cdata.ptr32m.insert(pair<string, string>(scope + varname, "10")); break;
-								case FH_PTR_QWORD: cdata.ptr64m.insert(pair<string, string>(scope + varname, "10")); break;
-							}
-						}
-						else {
-							switch (vartype) {
-								case FH_BYTE:      cdata.d8m.insert(pair<string, string>(scope + varname, "res"));    break;
-								case FH_WORD:      cdata.d16m.insert(pair<string, string>(scope + varname, "res"));   break;
-								case FH_DWORD:     cdata.d32m.insert(pair<string, string>(scope + varname, "res"));   break;
-								case FH_QWORD:     cdata.d64m.insert(pair<string, string>(scope + varname, "res"));   break;
-								case FH_PTR_BYTE:  cdata.ptr8m.insert(pair<string, string>(scope + varname, "res"));  break;
-								case FH_PTR_WORD:  cdata.ptr16m.insert(pair<string, string>(scope + varname, "res")); break;
-								case FH_PTR_DWORD: cdata.ptr32m.insert(pair<string, string>(scope + varname, "res")); break;
-								case FH_PTR_QWORD: cdata.ptr64m.insert(pair<string, string>(scope + varname, "res")); break;
-							}
-						}
+						//Reset enum
+						vartype = FH_DEFAULT;
 					}
 				}
 				
@@ -292,8 +253,8 @@ int main(int argc, char **argv) {
 					//Used to find all stack variables
 					outtext << lexer(nextword(linetmp, 2)) << ":" << endl;
 					
-					cout << "Scope: 	F_" << lexer(nextword(linetmp, 2)) << "_@N" << endl;
-					scope = "F_" + lexer(nextword(linetmp, 2)) + "_@N";
+					cout << "Scope: 	F_" << lexer(nextword(linetmp, 2)) << "_" << endl;
+					scope = "F_" + lexer(nextword(linetmp, 2)) + "_";
 					
 					cout << "SCOPELV BEGIN" << endl;
 					
@@ -317,56 +278,63 @@ int main(int argc, char **argv) {
 							fnline = fnline.substr(findnoq(fnline, ':') + 1, fnline.size() - findnoq(fnline, ':') - 1);
 						}
 						
-						//cout << fnline << endl;
-						
+						/*
 						//Stack variable declaration
 						if (fnline.substr(0, 2) == "d8") {
 							varname = scope + lexer(nextword(fnline, 2));
+							vartype = FH_BYTE;
 							
 							stacklv++;
 							cdata.d8m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 						}
 						else if (fnline.substr(0, 3) == "d16") {
 							varname = scope + lexer(nextword(fnline, 3));
+							vartype = FH_WORD;
 							
 							stacklv += 2;
 							cdata.d16m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 						}
 						else if (fnline.substr(0, 3) == "d32") {
 							varname = scope + lexer(nextword(fnline, 3));
+							vartype = FH_DWORD;
 							
 							stacklv += 4;
 							cdata.d32m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 						}
 						else if (fnline.substr(0, 3) == "d64") {
 							varname = scope + lexer(nextword(fnline, 3));
+							vartype = FH_QWORD;
 							
 							stacklv += 8;
 							cdata.d64m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 						}
 						
 						//Pointer declaration
-						if (line.size() >= 6) {
+						else if (line.size() >= 6) {
 							if (fnline.substr(0, 4) == "ptr8") {
 								varname = scope + lexer(nextword(fnline, 4));
+								vartype = FH_PTR_BYTE;
 								
 								stacklv += 8;
 								cdata.ptr8m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 							}
 							else if (fnline.substr(0, 5) == "ptr16") {
 								varname = scope + lexer(nextword(fnline, 5));
+								vartype = FH_PTR_WORD;
 								
 								stacklv += 8;
 								cdata.ptr16m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 							}
 							else if (fnline.substr(0, 5) == "ptr32") {
 								varname = scope + lexer(nextword(fnline, 5));
+								vartype = FH_PTR_DWORD;
 								
 								stacklv += 8;
 								cdata.ptr32m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
 							}
 							else if (fnline.substr(0, 5) == "ptr64") {
 								varname = scope + lexer(nextword(fnline, 5));
+								vartype = FH_PTR_QWORD;
 								
 								stacklv += 8;
 								cdata.ptr64m.insert(pair<string, string>(varname, (string) to_string(stacklv)));
@@ -377,6 +345,64 @@ int main(int argc, char **argv) {
 								scopelvtmp--;
 								fnline = fnline.substr(findnoq(fnline, ';') + 1, fnline.size() - findnoq(fnline, ';') - 1);
 							}
+						}
+						*/
+						
+						//Stack variable declaration
+						if (fnline.substr(0, 2) == "d8")       vartype = FH_BYTE;
+						else if (fnline.substr(0, 3) == "d16") vartype = FH_WORD;
+						else if (fnline.substr(0, 3) == "d32") vartype = FH_DWORD;
+						else if (fnline.substr(0, 3) == "d64") vartype = FH_QWORD;
+						
+						int arrsize = 1;
+						
+						switch (vartype) {
+							case FH_BYTE:      arrsize = 1; fnline = nextword(fnline, 2); break;
+							case FH_WORD:      arrsize = 2; fnline = nextword(fnline, 3); break;
+							case FH_DWORD:     arrsize = 4; fnline = nextword(fnline, 3); break;
+							case FH_QWORD:     arrsize = 8; fnline = nextword(fnline, 3); break;
+							default: break;
+						}
+						
+						if (vartype != FH_DEFAULT) {
+							do {
+								varname = lexer(fnline);
+								cout << "VARNAME:	" + varname << endl;
+								
+								while (vartype and varname.size() and isnumeric(varname)) {
+									arrsize *= stoi(varname);
+									fnline = nextword(fnline, varname.size());
+									varname = lexer(fnline);
+								}
+								
+								cout << "FINIHS" << endl;
+								
+								switch (vartype) {
+									case FH_BYTE:      cout << "BYTE\n"; cdata.d8m.insert(pair<string, string>(scope + varname, "1"));    break;
+									case FH_WORD:      cout << "WORD\n"; cdata.d16m.insert(pair<string, string>(scope + varname, "1"));   break;
+									case FH_DWORD:     cout << "DWRD\n"; cdata.d32m.insert(pair<string, string>(scope + varname, "1"));   break;
+									case FH_QWORD:     cout << "QWRD\n"; cdata.d64m.insert(pair<string, string>(scope + varname, "1"));   break;
+									default: cout << "BRUH\n"; break;
+								}
+								cout << "FINIHS2" << endl;
+								
+								if (findnoq(fnline, ',') < fnline.size()) 
+									fnline = nextword(fnline, findnoq(fnline, ',') + 1);
+								else fnline = "";
+								
+								cout << "AB:	" + fnline << endl;
+								stacklv += arrsize;
+								outtext << varname << "	equ	rbp - " << stacklv << endl;
+								
+							} while (fnline.size());
+							
+							vartype = FH_DEFAULT;
+						}
+						
+						//Decrement scope
+						while (findnoq(fnline, ';') < fnline.size()) {
+							scopelvtmp--;
+							fnline = fnline.substr(findnoq(fnline, ';') + 1, fnline.size() - findnoq(fnline, ';') - 1);
 						}
 						
 						advance(itfn, 1);
@@ -397,11 +423,12 @@ int main(int argc, char **argv) {
 					}
 					
 					linetmp = nextword(linetmp.substr(linetmp.find(':') + 1, linetmp.size() - linetmp.find(':') - 1), 0);
-					cout << "LINEDCL:	'" << linetmp << "'"<<endl;
+					cout << "SCOPELV END\nLINEDCL:	'" << linetmp << "'"<<endl;
 				}
 				
 				//Check non-return function call
-				if (linetmp[0] == '$') {
+				if (linetmp[0] == '@' or linetmp[0] == '$') {
+					bool dllcall;	//Check if calling DLL or static function
 					string 
 						fnname, 	//Get function name to call
 						reg_xx; 	//Get register for storing parameters
@@ -412,10 +439,13 @@ int main(int argc, char **argv) {
 						sqbuf = 0,  	//Check if inside nester square brackets
 						sqcount = 0;	//Get number of square brackets
 					
+					dllcall = (linetmp[0] == '$');
 					fnname = linetmp.substr(1, linetmp.find('[') - 1);
 					linetmp = nextword(linetmp, fnname.size() + 2);
 					
-					//Get parameters
+					//Set function name with braces if calling dll function
+					if (dllcall) fnname = '[' + fnname + ']';
+					
 					//Check if there are parameters
 					if (linetmp[0] == ']')
 						linetmp = linetmp.substr(1, linetmp.size() - 1);
@@ -500,6 +530,7 @@ int main(int argc, char **argv) {
 					string equ = lexer(nextword(linetmp.substr(lexer(linetmp).size(), linetmp.size() - lexer(linetmp).size()), 0));
 					if (findnoq(equ, '=') < equ.size()) {
 						string 
+							lvaluei,			//Get left variable of operation (with scope prefix)
 							lvalue,				//Get left variable of operation
 							reg_ax;				//ax register size, get size of lvalue
 						
@@ -514,44 +545,35 @@ int main(int argc, char **argv) {
 						if (cdata.d8m.count("G_" + lvalue)
 						or cdata.d16m.count("G_" + lvalue)
 						or cdata.d32m.count("G_" + lvalue)
-						or cdata.d64m.count("G_" + lvalue)
-						or cdata.ptr8m.count("G_" + lvalue) 
-						or cdata.ptr16m.count("G_" + lvalue) 
-						or cdata.ptr32m.count("G_" + lvalue)
-						or cdata.ptr64m.count("G_" + lvalue))
+						or cdata.d64m.count("G_" + lvalue))
 							isglobal = 1;
 
 						else if (
 						not (cdata.d8m.count(scope + lvalue)
 						or cdata.d16m.count(scope + lvalue)
 						or cdata.d32m.count(scope + lvalue)
-						or cdata.d64m.count(scope + lvalue)
-						or cdata.ptr8m.count(scope + lvalue) 
-						or cdata.ptr16m.count(scope + lvalue) 
-						or cdata.ptr32m.count(scope + lvalue)
-						or cdata.ptr64m.count(scope + lvalue))) {
+						or cdata.d64m.count(scope + lvalue))) {
 							cerr << "Error: Variable '" << lvalue << "' not found." << endl;
 							return 1;
 						}
 						
 						//Check size of variable
-						if (isglobal)	lvalue = "G_" + lvalue;
-						else         	lvalue = scope + lvalue;
+						if (isglobal) {
+							lvaluei = "G_" + lvalue;
+							lvalue = lvaluei;
+						}
+						else lvaluei = scope + lvalue;
 						
-						if (cdata.d8m.count(lvalue)) 	reg_ax = "al";
-						if (cdata.d16m.count(lvalue))	reg_ax = "ax";
-						if (cdata.d32m.count(lvalue))	reg_ax = "eax";
-						if (cdata.d64m.count(lvalue) or
-							cdata.ptr8m.count(lvalue) or 
-							cdata.ptr16m.count(lvalue) or
-							cdata.ptr32m.count(lvalue) or
-							cdata.ptr64m.count(lvalue))	
-							reg_ax = "rax";
+						if (cdata.d8m.count(lvaluei)) 	reg_ax = "al";
+						if (cdata.d16m.count(lvaluei))	reg_ax = "ax";
+						if (cdata.d32m.count(lvaluei))	reg_ax = "eax";
+						if (cdata.d64m.count(lvaluei))	reg_ax = "rax";
 						
 						
 						//Parse the equation
 						outtext << endl;
 						lexereq(outtext, cdata, linetmp, scope);
+						cout << "ENDLEXEQ" << endl;
 						
 						//Regular operators
 						if (equ == "=") 	outtext << "mov " << "[" << lvalue << "], " << reg_ax << endl; else
@@ -576,13 +598,10 @@ int main(int argc, char **argv) {
 						if (equ == "%=")	outtext << "xor " << "[" << lvalue << "], " << reg_ax << endl;
 						
 						//Reference operators
-						if (cdata.ptr8m.count(lvalue)
-						or cdata.ptr16m.count(lvalue)
-						or cdata.ptr32m.count(lvalue)
-						or cdata.ptr64m.count(lvalue)) {
+						/*
 							if (equ == "@=")	outtext << "lea " << "[" << lvalue << "], [" << reg_ax << "]" << endl; else
 							if (equ == "$=")	outtext << "mov " << "[" << lvalue << "], [" << reg_ax << "]" << endl;
-						}
+						*/
 						else if (equ == "@=" or equ == "$=") {
 							cerr << "Error: Variable '" << lvalue << "' is not a pointer." << endl;
 							return 1;
@@ -596,7 +615,35 @@ int main(int argc, char **argv) {
 				if (lexer(linetmp) == "lang") {
 					linetmp = nextword(linetmp, 4);
 					
-					if (lexer(linetmp) == "asm") flag_asm = 1;
+					if (lexer(linetmp) == "asm") {
+						flag_asm = 1;
+						
+						cout << "L:	" << linetmp << endl;
+						linetmp = nextword(linetmp, linetmp.find(':') + 1);
+						cout << "L:	" << linetmp << endl;
+						
+						//Check if end of flag_asm
+						if (findnoq(linetmp, ';') < linetmp.size()) {
+							linetmp = linetmp.substr(0, findnoq(linetmp, ';'));
+							flag_asm = 0;
+						}
+						
+						//Check appropriate section to output
+						if (scope == "G_") {
+							//Output data header early
+							if (datadecl) 
+							#ifdef _WIN32
+								outdata << "section '.data' data readable writeable" << endl;
+							#endif
+							#ifdef __linux__
+								outdata << "segment writeable" << endl;
+							#endif
+							
+							outdata << linetmp << endl;
+							datadecl = 0;
+						}
+						else outtext << linetmp << endl;
+					}
 				}
 				else if (lexer(linetmp) == "ret") {
 					if (findnoq(linetmp, ';') < linetmp.size())
@@ -604,7 +651,7 @@ int main(int argc, char **argv) {
 					if (linetmp.size())
 						lexereq(outtext, cdata, linetmp, scope);
 					
-					outtext << "ret " << endl;
+					outtext << "ret \n" << endl;
 				}
 				else if (linetmp.substr(0, 7) == "endproc") {
 					if (stacklv) {
@@ -635,75 +682,39 @@ int main(int argc, char **argv) {
 		
 		//Put variables to file
 		for (auto it = cdata.d8m.begin(); it != cdata.d8m.end(); advance(it, 1)) { 
-			//If stack variable
-			if (it->first.substr(0, 2) == "F_")
-				outdata << "define " << it->first << "	rbp - " << it->second << endl;
-			
 			//If global variable
-			else outdata << it->first << "\tdb 0" << endl;
+			if (it->first.substr(0, 2) == "G_") {
+				if (it->second.substr(0, 3) == "res")
+					outdata << it->first << "\trb " << nextword(it->second, 3) << endl;
+				else outdata << it->first << "\tdb " << it->second << endl;
+			}
 		}
 		
 		for (auto it = cdata.d16m.begin(); it != cdata.d16m.end(); advance(it, 1)) { 
-			//If stack variable
-			if (it->first.substr(0, 2) == "F_")
-				outdata << "define " << it->first << "	rbp - " << it->second << endl;
-			
 			//If global variable
-			else outdata << it->first << "\tdw 0" << endl;
+			if (it->first.substr(0, 2) == "G_") {
+				if (it->second.substr(0, 3) == "res")
+					outdata << it->first << "\trw " << nextword(it->second, 3) << endl;
+				else outdata << it->first << "\tdw " << it->second << endl;
+			}
 		}
 		
 		for (auto it = cdata.d32m.begin(); it != cdata.d32m.end(); advance(it, 1)) { 
-			//If stack variable
-			if (it->first.substr(0, 2) == "F_")
-				outdata << "define " << it->first << "	rbp - " << it->second << endl;
-			
 			//If global variable
-			else outdata << it->first << "\tdd 0" << endl;
+			if (it->first.substr(0, 2) == "G_") {
+				if (it->second.substr(0, 3) == "res")
+					outdata << it->first << "\trd " << nextword(it->second, 3) << endl;
+				else outdata << it->first << "\tdd " << it->second << endl;
+			}
 		}
 		
 		for (auto it = cdata.d64m.begin(); it != cdata.d64m.end(); advance(it, 1)) { 
-			//If stack variable
-			if (it->first.substr(0, 2) == "F_")
-				outdata << "define " << it->first << "	rbp - " << it->second << endl;
-			
 			//If global variable
-			else outdata << it->first << "\tdq 0" << endl;
-		}
-		
-		for (auto it = cdata.ptr8m.begin(); it != cdata.ptr8m.end(); advance(it, 1)) { 
-			//If stack variable
-			if (it->first.substr(0, 2) == "F_")
-				outdata << "define " << it->first << "	rbp - " << it->second << endl;
-			
-			//If global variable
-			else outdata << it->first << "\tdb 0" << endl;
-		}
-		
-		for (auto it = cdata.ptr16m.begin(); it != cdata.ptr16m.end(); advance(it, 1)) { 
-			//If stack variable
-			if (it->first.substr(0, 2) == "F_")
-				outdata << "define " << it->first << "	rbp - " << it->second << endl;
-			
-			//If global variable
-			else outdata << it->first << "\tdw 0" << endl;
-		}
-		
-		for (auto it = cdata.ptr32m.begin(); it != cdata.ptr32m.end(); advance(it, 1)) { 
-			//If stack variable
-			if (it->first.substr(0, 2) == "F_")
-				outdata << "define " << it->first << "	rbp - " << it->second << endl;
-			
-			//If global variable
-			else outdata << it->first << "\tdd 0" << endl;
-		}
-		
-		for (auto it = cdata.ptr64m.begin(); it != cdata.ptr64m.end(); advance(it, 1)) { 
-			//If stack variable
-			if (it->first.substr(0, 2) == "F_")
-				outdata << "define " << it->first << "	rbp - " << it->second << endl;
-			
-			//If global variable
-			else outdata << it->first << "\tdq 0" << endl;
+			if (it->first.substr(0, 2) == "G_") {
+				if (it->second.substr(0, 3) == "res")
+					outdata << it->first << "\trq " << nextword(it->second, 3) << endl;
+				else outdata << it->first << "\tdq " << it->second << endl;
+			}
 		}
 		
 		string outfstr = ((string) argv[1]).substr(0, ((string) argv[1]).find('.'));

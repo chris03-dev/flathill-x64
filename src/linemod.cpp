@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <vector>
 #include <set>
 #include "linemod.h"
 
@@ -38,9 +39,14 @@ bool isnumeric(const std::string &s) {
 	for (unsigned int i = 0; i < s.size(); ++i) {
 		//Check if binary or hexadecimal
 		if (s.size() > 2) {
-			if (s[0] == '0' and (s[1] == 'x' or s[1] == 'b')) {
+			if ((s[0] == '0' and (s[1] == 'x' or s[1] == 'b'))) {
 				if (i < 2) continue;
 				if (not (alphanum.count(s[i]) or isdigit(s[i])))
+					return 0;
+			}
+			else if (s[0] == '-') {
+				if (not i) continue;
+				if (not isdigit(s[i])) 
 					return 0;
 			}
 			else if (not isdigit(s[i])) 
@@ -131,13 +137,14 @@ unsigned int findnoqs(const std::string &s, const std::string &f, unsigned int n
 //Skip whitespace for new token
 std::string nextword(const std::string &s, unsigned int n) {
 	while (
-		n < s.size() and 
+		n < s.size() and
+		s[n] != '\0' and 
 		(s[n] == ' ' or 
 		s[n] == '\n' or 
 		s[n] == '\r' or 
 		s[n] == '\t')
 	)
-		++n;
+		n++;
 
 	return s.substr(n, s.size() - n);
 }
@@ -151,8 +158,11 @@ std::string lexer(const std::string &s) {
 		s[n] != '\r' and
 		s[n] != '\n' and
 		s[n] != '\t' and
+		s[n] != ',' and
 		s[n] != ':' and
-		s[n] != ';'
+		s[n] != ';' and
+		s[n] != '[' and
+		s[n] != ']'
 	)
 		++n;
 	
@@ -191,14 +201,15 @@ const compilerdata &cdata,
 std::string s, 
 const std::string &sscope) {
 	unsigned int 
-		tokenptr = 0,			//Pointer for set of tokens
-		lexcount = 0,  			//Get lexercount of overall equation
-		varlexc = 0; 			//Get lexercount of parenthesized equation
+		tokenptr = 0,	     	//Pointer for set of tokens
+		lexcount = 0,      	 	//Get lexercount of overall equation
+		varlexc = 0;       	 	//Get lexercount of parenthesized equation
 	
-	int addrc[2] = {0, 0};		//Get address or value of lvalue and rvalue
+	int addrc[2] = {0, 0};	 	//Get address or value of lvalue and rvalue
+	char addrprc[2] = {0, 0};	//Get precision of dereferencing value
 	
-	std::string token[3];				//All 3 tokens are used in 1st operation,
-										//and the last 2 are used in subsequent operations
+	std::string token[3]; 	 	//All 3 tokens are used in 1st operation,
+	                      		//and the last 2 are used in subsequent operations
 	
 	//Check for endpoints
 	if (findnoq(s, ';') < s.size()) s = s.substr(0, findnoq(s, ';'));
@@ -214,16 +225,15 @@ const std::string &sscope) {
 		isequ[2] = {0, 0},   		//Equation flag
 		isfun[2] = {0, 0},   		//Function flag
 		isarg[2] = {0, 0},   		//Argument flag
-		equend = 0;					//End of parenthesized equation (only in recursion)
-	
+		equend = 0;          		//End of parenthesized equation (only in recursion)
 	
 	std::cout << "START" << std::endl;
 	
 	for (
 		std::string lex = lexer(s); 
-	    lex != "" or s != ""; 
+	    lex.size() or s.size(); 
 		++lexcount,
-	    s = nextword(s.substr(lex.size(), s.size() - lex.size()), 0),
+	    s = nextword(s, lex.size()),
 	    lex = lexer(s)
 	) {
 		token[tokenptr] = lex;
@@ -231,13 +241,23 @@ const std::string &sscope) {
 		
 		//Check if token is not an operator
 		if (tokenptr != 1) {
+			std::cout << s[token[tokenptr].size()] << (char) 10;
 			//Get address or value iteration count
-			if ((token[tokenptr][0] == '@' or token[tokenptr][0] == '$') and not (token[tokenptr].find('[') < token[tokenptr].size())) {
-				for (; token[tokenptr][0] == '@'; token[tokenptr] = token[tokenptr].substr(1, token[tokenptr].size() - 1))
-					addrc[tokenptr]++;
+			if ((token[tokenptr][0] == '@' or token[tokenptr][0] == '$') and not (s[token[tokenptr].size()] == '[')) {
+				for (; token[tokenptr][0] == '@'; ++addrc[tokenptr/2])
+					token[tokenptr] = token[tokenptr].substr(1, token[tokenptr].size() - 1);
 				
-				for (; token[tokenptr][0] == '$'; token[tokenptr] = token[tokenptr].substr(1, token[tokenptr].size() - 1))
-					addrc[tokenptr]--;
+				for (; token[tokenptr][0] == '$'; --addrc[tokenptr/2]) {
+					if (token[tokenptr][2] == '.') switch (token[tokenptr][1]) {
+						case 'b':  case 'w': 
+						case 'd':  case 'q': 
+							addrprc[tokenptr/2] = token[tokenptr][1];
+							token[tokenptr] = token[tokenptr].substr(2, token[tokenptr].size() - 2);
+							break;
+						default: break;
+					}
+					token[tokenptr] = token[tokenptr].substr(1, token[tokenptr].size() - 1);
+				}
 			}
 			
 			//Check if token leads to parenthesized equation
@@ -245,9 +265,7 @@ const std::string &sscope) {
 				isequ[tokenptr/2] = 1;
 				
 				//Save current lvalue
-				if (tokenptr/2 == 1) {
-					out << "push rax" << std::endl;
-				}
+				//if (tokenptr/2 == 1) out << "push rax" << std::endl;
 				
 				//Check if parenthesis is separate from token
 				if (token[tokenptr] == "(") {
@@ -271,14 +289,16 @@ const std::string &sscope) {
 			}
 			
 			//Check if token is end of the parenthesized equation
-			else if (token[2].find(')') < token[tokenptr].size()) {
+			if (token[2].find(')') < token[tokenptr].size()) {
 				token[2] = token[2].substr(0, token[2].find(')'));
 				equend = 1;
 			}
 			
+			//Prefix conditions
 			//Check if token leads to function
-			else if (token[tokenptr][0] == '$' and token[tokenptr].find('[') < token[tokenptr].size()) {
+			if ((token[tokenptr][0] == '@' or token[tokenptr][0] == '$') and (s[token[tokenptr].size()] == '[')) {
 				isfun[tokenptr/2] = 1;
+				bool dllcall;	//Check if calling DLL or static function
 				
 				std::string 
 					fnname, 	//Get function name to call
@@ -289,12 +309,16 @@ const std::string &sscope) {
 					largc = -1,  	//Get parameter count
 					sqbuf = 0,  	//Check if inside nester square brackets
 					sqcount = 0;	//Get number of square brackets
-					
+				
+				dllcall = (token[tokenptr][0] == '$');
 				fnname = s.substr(1, s.find('[') - 1);
 				s = nextword(s, fnname.size() + 2);
 				
+				//Set function name with braces if calling dll function
+				if (dllcall) fnname = '[' + fnname + ']';
+				
 				//Save current lvalue
-				if (tokenptr == 2) out << "push rax" << std::endl;
+				//if (tokenptr == 2) out << "push rax" << std::endl;
 				
 				//Check if there are parameters
 				if (s[0] == ']')
@@ -380,34 +404,26 @@ const std::string &sscope) {
 			}
 			
 			//Check if token is a function argument
-			else if (token[tokenptr][0] == '%') {
+			if (token[tokenptr][0] == '%') {
 				isarg[tokenptr/2] = 1;
 			}
 			
 			//Check if token is variable or number
-			else if (not isnumeric(token[tokenptr])) {
+			if (not (isequ[tokenptr/2] or isfun[tokenptr/2] or isarg[tokenptr/2] or isnumeric(token[tokenptr]))) {
 				isnum[tokenptr/2] = 0;
 				
 				//Check if token is global or stack variable
 				if (cdata.d8m.count("G_" + token[tokenptr])
 				or cdata.d16m.count("G_" + token[tokenptr])
 				or cdata.d32m.count("G_" + token[tokenptr])
-				or cdata.d64m.count("G_" + token[tokenptr])
-				or cdata.ptr8m.count("G_" + token[tokenptr])
-				or cdata.ptr16m.count("G_" + token[tokenptr])
-				or cdata.ptr32m.count("G_" + token[tokenptr])
-				or cdata.ptr64m.count("G_" + token[tokenptr]))
+				or cdata.d64m.count("G_" + token[tokenptr]))
 					isglobal[tokenptr/2] = 1;
 				
 				else if (
 				not (cdata.d8m.count(sscope + token[tokenptr])
 				or cdata.d16m.count(sscope + token[tokenptr])
 				or cdata.d32m.count(sscope + token[tokenptr])
-				or cdata.d64m.count(sscope + token[tokenptr])
-				or cdata.ptr8m.count(sscope + token[tokenptr])
-				or cdata.ptr16m.count(sscope + token[tokenptr])
-				or cdata.ptr32m.count(sscope + token[tokenptr])
-				or cdata.ptr64m.count(sscope + token[tokenptr]))) {
+				or cdata.d64m.count(sscope + token[tokenptr]))) {
 					std::cerr << "Error: Variable '" << token[tokenptr] << "' not found." << std::endl;
 					return 0;
 				}
@@ -436,22 +452,21 @@ const std::string &sscope) {
 				reg_ax, 	//ax register
 				reg_bx; 	//bx register
 			
+			std::cout << "LEXCD:	" << lexcount << std::endl;
+			
 			//First token
 			if (token[0].size() and not (isequ[0] or isfun[0] or isarg[0])) {
 				if (not isnum[0]) {
-					if (isglobal[0]) lvalue = "G_" + token[0];
-					else lvalue = sscope + token[0];
+					if (isglobal[0]) lvaluei = "G_" + token[0];
+					else lvaluei = sscope + token[0];
 					
-					if (cdata.d8m.count(lvalue)) 	reg_ax = "al";
-					if (cdata.d16m.count(lvalue))	reg_ax = "ax";
-					if (cdata.d32m.count(lvalue))	reg_ax = "eax";
-					if (cdata.d64m.count(lvalue)
-					or cdata.ptr8m.count(lvalue)
-					or cdata.ptr16m.count(lvalue)
-					or cdata.ptr32m.count(lvalue)
-					or cdata.ptr64m.count(lvalue))	reg_ax = "rax";
+					if (cdata.d8m.count(lvaluei)) 	reg_ax = "al";
+					if (cdata.d16m.count(lvaluei))	reg_ax = "ax";
+					if (cdata.d32m.count(lvaluei))	reg_ax = "eax";
+					if (cdata.d64m.count(lvaluei))	reg_ax = "rax";
 					
-					lvaluei = lvalue;
+					if (isglobal[0]) lvalue = lvaluei;
+					else lvalue = token[0];
 					lvalue = "[" + lvalue + "]";
 				}
 				else {
@@ -468,20 +483,27 @@ const std::string &sscope) {
 				}
 			}
 			
+			std::cout << "LEXCD1:	" << isarg[1] << std::endl;
+			
 			//Second token
 			if (not (isequ[1] or isfun[1] or isarg[1])) {
 				if (not isnum[1]) {
-					if (isglobal[1]) rvalue = "G_" + token[2];
-					else rvalue = sscope + token[2];
+					if (isglobal[1]) rvaluei = "G_" + token[2];
+					else rvaluei = sscope + token[2];
 					
-					rvaluei = rvalue;
+					if (cdata.d8m.count(rvaluei)) 	reg_bx = "bl";
+					if (cdata.d16m.count(rvaluei))	reg_bx = "bx";
+					if (cdata.d32m.count(rvaluei))	reg_bx = "ebx";
+					if (cdata.d64m.count(rvaluei))	reg_bx = "rbx";
+					
+					if (isglobal[1]) rvalue = rvaluei;
+					else rvalue = token[2];
 					rvalue = "[" + rvalue + "]";
 				}
 				else {
 					rvalue = token[2];
 					
 					unsigned int vcomp;
-					
 					if (rvalue[0] == '0' and (rvalue[1] == 'x' or rvalue[1] == 'b'))
 						vcomp = std::stoul(rvalue, nullptr, 16);
 					else vcomp = std::stoi(rvalue.c_str());
@@ -492,16 +514,20 @@ const std::string &sscope) {
 					else                    	reg_bx = "bl";
 				}
 			}
+			/*
+			std::cout << "LEXCD2:	" << lexcount << std::endl;
 			
 			std::cout << "LVALUE (" << addrc[0] << "):	'" << lvalue << "'" << std::endl;
 			std::cout << "RVALUE (" << addrc[1] << "):	'" << rvalue << "'" << std::endl;
-		
+			*/
 			//PARSE THE OPERATION!
 			if (isequ[1] or isfun[1]) {
 				out << "mov rbx, rax" << std::endl;
 				if (not isfun[1] or (isfun[0] and isfun[1])) 
 					out << "pop rax" << std::endl;
 			}
+			
+			std::cout << "CHECK1" << std::endl;
 			
 			if (token[0].size()) {
 				if (not (isequ[0] or isfun[0])) {
@@ -565,22 +591,21 @@ const std::string &sscope) {
 							fst = 0;
 						}
 						
-						if (addrc[0] == -1) {
-							if (cdata.ptr8m.count(lvaluei) 
-							or cdata.ptr16m.count(lvaluei)) 
-								out << "xor eax, eax" << std::endl;
-							
-							if (cdata.ptr8m.count(lvaluei)) out << "mov al, byte [rsi]" << std::endl;
-							if (cdata.ptr16m.count(lvaluei)) out << "mov ax, word [rsi]" << std::endl;
-							if (cdata.ptr32m.count(lvaluei)) out << "mov eax, dword [rsi]" << std::endl;
-							if (cdata.ptr64m.count(lvaluei)) out << "mov rax, [rsi]" << std::endl;
+						if (addrc[0] < -1) out << "mov rsi, [rsi]" << std::endl;
+						else switch (addrprc[0]) {
+							case 'b': out << "xor eax, eax" << std::endl; out << "mov al, byte [rsi]" << std::endl; break;
+							case 'w': out << "xor eax, eax" << std::endl; out << "mov ax, word [rsi]" << std::endl; break;
+							case 'd': out << "mov eax, dword [rsi]" << std::endl; break;
+							case 'q': out << "mov rax, [rsi]" << std::endl; break;
+							default: std::cout << "BRUH\n"; break;
 						}
-						else out << "mov rsi, [rsi]" << std::endl;
 						
 						++addrc[0];
 					}
 				}
 			}
+			
+			std::cout << "CHECK2" << addrc[1] << std::endl;
 			
 			//Point to reference or value
 			if (addrc[1]) {
@@ -589,7 +614,7 @@ const std::string &sscope) {
 				//Set to address
 				while (addrc[1] > 0) {
 					if (fst and not (isarg[1] or isequ[1] or isfun[1])) {
-						if (not isarg[1]) out << "mov rbx, " << rvalue << std::endl;
+						if (not isarg[1]) out << "lea rbx, " << rvalue << std::endl;
 						fst = 0;
 					}
 					else out << "lea rbx, [rbx]" << std::endl;
@@ -602,16 +627,19 @@ const std::string &sscope) {
 						out << "mov rsi, " << rvalue << std::endl;
 						fst = 0;
 					}
-					if (addrc[1] == -1) {
-						if (cdata.ptr8m.count(rvaluei)) out << "mov rbx, byte [rsi]" << std::endl;
-						if (cdata.ptr16m.count(rvaluei)) out << "mov rbx, word [rsi]" << std::endl;
-						if (cdata.ptr32m.count(rvaluei)) out << "mov rbx, dword [rsi]" << std::endl;
-						if (cdata.ptr64m.count(rvaluei)) out << "mov rbx, [rsi]" << std::endl;
+					if (addrc[1] < -1) out << "mov rsi, [rsi]" << std::endl;
+					else switch (addrprc[1]) {
+						case 'b': out << "mov bl, byte [rsi]" << std::endl; break;
+						case 'w': out << "mov bx, word [rsi]" << std::endl; break;
+						case 'd': out << "mov ebx, dword [rsi]" << std::endl; break;
+						case 'q': out << "mov rbx, [rsi]" << std::endl; break;
+						default: std::cout << "BRUH\n"; break;
 					}
-					else out << "mov rsi, [rsi]" << std::endl;
 					
-					++addrc[0];
+					++addrc[1];
 				}
+				
+				isequ[1] = 1;		//Terrible fix, but okay
 			}
 			
 			if (isequ[1] or isfun[1]) {
@@ -653,11 +681,11 @@ const std::string &sscope) {
 					if (token[1] == "-")
 						out << "sub rax, " << rvalue << std::endl;
 					if (token[1] == "*") {
-						out << "mov " << reg_bx << ", " << rvalue << std::endl;
+						if (not isarg[1]) out << "mov " << reg_bx << ", " << rvalue << std::endl;
 						out << "mul rbx" << std::endl;
 					}
 					if (token[1] == "/") {
-						out << "mov " << reg_bx << ", " << rvalue << std::endl;
+						if (not isarg[1]) out << "mov " << reg_bx << ", " << rvalue << std::endl;
 						out << "div rbx" << std::endl;
 					}
 					
@@ -677,7 +705,7 @@ const std::string &sscope) {
 				return lexcount + 1;
 			}
 			
-			std::cout << "RELOOP\n";
+			std::cout << "RELOOP" << std::endl;
 			
 			//Restore default values, never use token[0] again
 			token[0] = "";
@@ -700,20 +728,16 @@ const std::string &sscope) {
 		if (not (isequ[0] or isfun[0] or isarg[0])) {
 			if (not isnum[0]) {
 				//Check if token is global or stack variable
-				if (isglobal[0]) lvalue = "G_" + token[0];
-				else lvalue = sscope + token[0];
+				if (isglobal[0]) lvaluei = "G_" + token[0];
+				else lvaluei = sscope + token[0];
 				
-				if (cdata.d8m.count(lvalue)) 	reg_ax = "al";
-				if (cdata.d16m.count(lvalue))	reg_ax = "ax";
-				if (cdata.d32m.count(lvalue))	reg_ax = "eax";
-				if (cdata.d64m.count(lvalue)
-				or cdata.ptr8m.count(lvalue)
-				or cdata.ptr16m.count(lvalue)
-				or cdata.ptr32m.count(lvalue)
-				or cdata.ptr64m.count(lvalue))	
-					reg_ax = "rax";
+				if (cdata.d8m.count(lvaluei)) 	reg_ax = "al";
+				if (cdata.d16m.count(lvaluei))	reg_ax = "ax";
+				if (cdata.d32m.count(lvaluei))	reg_ax = "eax";
+				if (cdata.d64m.count(lvaluei))	reg_ax = "rax";
 				
-				lvaluei = lvalue;
+				if (isglobal[0]) lvalue = lvaluei;
+				else lvalue = token[0];
 				lvalue = "[" + lvalue + "]";
 			}
 			else {
@@ -791,17 +815,14 @@ const std::string &sscope) {
 					fst = 0;
 				}
 				
-				if (addrc[0] == -1) {
-					if (cdata.ptr8m.count(lvaluei) 
-					or cdata.ptr16m.count(lvaluei)) 
-						out << "xor eax, eax" << std::endl;
-
-					if (cdata.ptr8m.count(lvaluei)) out << "mov al, byte [rsi]" << std::endl;
-					if (cdata.ptr16m.count(lvaluei)) out << "mov ax, word [rsi]" << std::endl;
-					if (cdata.ptr32m.count(lvaluei)) out << "mov eax, dword [rsi]" << std::endl;
-					if (cdata.ptr64m.count(lvaluei)) out << "mov rax, [rsi]" << std::endl;
+				if (addrc[0] < -1) out << "mov rsi, [rsi]" << std::endl;
+				else switch (addrprc[0]) {
+					case 'b': out << "xor eax, eax" << std::endl; out << "mov al, byte [rsi]" << std::endl; break;
+					case 'w': out << "xor eax, eax" << std::endl; out << "mov ax, word [rsi]" << std::endl; break;
+					case 'd': out << "mov eax, dword [rsi]" << std::endl; break;
+					case 'q': out << "mov rax, [rsi]" << std::endl; break;
+					default: std::cout << "BRUH\n"; break;
 				}
-				else out << "mov rsi, [rsi]" << std::endl;
 				
 				++addrc[0];
 			}

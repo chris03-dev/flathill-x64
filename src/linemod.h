@@ -10,25 +10,20 @@
 //Holds variables
 struct compilerdata {
 	std::map<std::string, std::string> 
-		d8m, d16m, d32m, d64m, 
-		ptr8m, ptr16m, ptr32m, ptr64m;
+		d8m, d16m, d32m, d64m;
 	
 	compilerdata();
 };
 
 //To identify datatypes
 enum vartype_enum {
-	//Regular types
-	FH_BYTE,
-	FH_WORD,
-	FH_DWORD,
-	FH_QWORD,
+	FH_DEFAULT = 0,
 	
-	//Pointer types
-	FH_PTR_BYTE,
-	FH_PTR_WORD,
-	FH_PTR_DWORD,
-	FH_PTR_QWORD
+	//Regular types
+	FH_BYTE = 1,
+	FH_WORD = 2,
+	FH_DWORD = 3,
+	FH_QWORD = 4
 };
 
 extern char quotechar;
