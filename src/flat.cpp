@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <stack>
 #include <map>
 #include "linemod.h"
 
@@ -59,7 +60,7 @@ int main(int argc, char **argv) {
 		input.close();
 		
 		#ifdef _WIN32
-		outdata << "format PE64 GUI" << endl;
+		outdata << "format PE64 console" << endl;
 		outdata << "entry _start" << endl;
 		
 		//Library data
@@ -89,8 +90,12 @@ int main(int argc, char **argv) {
 			
 		unsigned int 
 			flinenum = 0, 			//Line number
+			jumpn = 0,   			//Block number
 			stacklv = 0,  			//Bytes pushed in stack
 			scopelv = 0;  			//Check if number of scopes in stack
+		
+		stack<unsigned int>
+			scopelv_block;			//Store block data
 		
 		bool 
 			datadecl = 0, 			//Check if section '.data' should be inserted
@@ -124,6 +129,7 @@ int main(int argc, char **argv) {
 				
 				if (not scopelv) {
 					scope = "G_";
+					jumpn = 0;
 					cout << "Dec scope." << endl;
 					
 					if (stacklv) {
@@ -203,7 +209,10 @@ int main(int argc, char **argv) {
 							int arrsize = 1;
 							
 							while (varname.size() and isnumeric(varname)) {
-								arrsize *= stoi(varname);
+								if (varname[0] == '0' and (varname[1] == 'x' or 'n')) 
+									arrsize *= stoul(varname.substr(2, varname.size() - 2), nullptr, (varname[1] == 'x') ? 16 : 2);
+								
+								else arrsize *= stoi(varname);
 								linetmp = nextword(linetmp, varname.size());
 								varname = lexer(linetmp);
 							}
@@ -572,7 +581,7 @@ int main(int argc, char **argv) {
 						
 						//Parse the equation
 						outtext << endl;
-						lexereq(outtext, cdata, linetmp, scope);
+						if (not lexereq(outtext, cdata, linetmp, scope)) return 1;
 						cout << "ENDLEXEQ" << endl;
 						
 						//Regular operators
@@ -612,7 +621,11 @@ int main(int argc, char **argv) {
 				}
 			
 				//Reserved keywords
-				if (lexer(linetmp) == "lang") {
+				if (lexer(linetmp) == "repeat") {
+					outtext << ".L" << jumpn++ << ':' << endl;
+				}
+				
+				else if (lexer(linetmp) == "lang") {
 					linetmp = nextword(linetmp, 4);
 					
 					if (lexer(linetmp) == "asm") {
@@ -653,7 +666,7 @@ int main(int argc, char **argv) {
 					
 					outtext << "ret \n" << endl;
 				}
-				else if (linetmp.substr(0, 7) == "endproc") {
+				else if (lexer(linetmp) == "endproc") {
 					if (stacklv) {
 						outtext << endl;
 						outtext << "add rsp, " << stacklv << endl;
@@ -682,42 +695,42 @@ int main(int argc, char **argv) {
 		
 		//Put variables to file
 		for (auto it = cdata.d8m.begin(); it != cdata.d8m.end(); advance(it, 1)) { 
-			//If global variable
-			if (it->first.substr(0, 2) == "G_") {
-				if (it->second.substr(0, 3) == "res")
-					outdata << it->first << "\trb " << nextword(it->second, 3) << endl;
-				else outdata << it->first << "\tdb " << it->second << endl;
+			//If reserved variable
+			if (it->second.substr(0, 3) == "res")
+				outdata << it->first << "\trb " << nextword(it->second, 3) << endl;
+			else if (it->second[0] == '"') {
+				outdata << it->first << "\tdb " << it->second << endl;
+				cout << it->first << it->second << endl;
 			}
+			else outdata << it->first << "\tdb " << it->second << endl;
 		}
 		
 		for (auto it = cdata.d16m.begin(); it != cdata.d16m.end(); advance(it, 1)) { 
-			//If global variable
-			if (it->first.substr(0, 2) == "G_") {
-				if (it->second.substr(0, 3) == "res")
-					outdata << it->first << "\trw " << nextword(it->second, 3) << endl;
-				else outdata << it->first << "\tdw " << it->second << endl;
-			}
+			//If reserved variable
+			if (it->second.substr(0, 3) == "res")
+				outdata << it->first << "\trw " << nextword(it->second, 3) << endl;
+			else outdata << it->first << "\tdw " << it->second << endl;
 		}
 		
 		for (auto it = cdata.d32m.begin(); it != cdata.d32m.end(); advance(it, 1)) { 
-			//If global variable
-			if (it->first.substr(0, 2) == "G_") {
-				if (it->second.substr(0, 3) == "res")
-					outdata << it->first << "\trd " << nextword(it->second, 3) << endl;
-				else outdata << it->first << "\tdd " << it->second << endl;
-			}
+			//If reserved variable
+			if (it->second.substr(0, 3) == "res")
+				outdata << it->first << "\trd " << nextword(it->second, 3) << endl;
+			else outdata << it->first << "\tdd " << it->second << endl;
 		}
 		
-		for (auto it = cdata.d64m.begin(); it != cdata.d64m.end(); advance(it, 1)) { 
-			//If global variable
-			if (it->first.substr(0, 2) == "G_") {
-				if (it->second.substr(0, 3) == "res")
-					outdata << it->first << "\trq " << nextword(it->second, 3) << endl;
-				else outdata << it->first << "\tdq " << it->second << endl;
-			}
+		for (auto it = cdata.d64m.begin(); it != cdata.d64m.end(); advance(it, 1)) {
+			//If reserved variable
+			if (it->second.substr(0, 3) == "res")
+				outdata << it->first << "\trq " << nextword(it->second, 3) << endl;
+			else outdata << it->first << "\tdq " << it->second << endl;
 		}
 		
-		string outfstr = ((string) argv[1]).substr(0, ((string) argv[1]).find('.'));
+		string outfstr = argv[1];
+
+		outfstr = outfstr.substr(0, outfstr.size() - (revstr(outfstr).find('.') + 1));
+		
+		cout << outfstr << '\t' << outfstr.size() - (revstr(outfstr).find('.') + 1) << endl;
 		output.open(outfstr + ".asm");
 		
 		//Put buffer to output file

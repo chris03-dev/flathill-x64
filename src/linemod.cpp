@@ -33,39 +33,55 @@ bool isnumeric(const std::string &s) {
 	const static std::set<char>
 		alphanum = {
 			'a', 'b', 'c', 'd', 'e', 'f',
-			'A', 'B', 'C', 'D', 'E', 'F'
+			'A', 'B', 'C', 'D', 'E', 'F',
+			'.'
 		};
 	
+	bool deci = 0;
 	for (unsigned int i = 0; i < s.size(); ++i) {
-		//Check if binary or hexadecimal
-		if (s.size() > 2) {
-			if ((s[0] == '0' and (s[1] == 'x' or s[1] == 'b'))) {
-				if (i < 2) continue;
-				if (not (alphanum.count(s[i]) or isdigit(s[i])))
-					return 0;
+		//Float checking
+		if (s.size() >= 2) {
+			if (s[0] == '.' or (s[0] == '-' and s[1] == '.')) return 0;
+			else if (s[i] == '.') {
+				if (not deci) deci = 1;
+				else return 0;
+				
+				continue;
 			}
-			else if (s[0] == '-') {
-				if (not i) continue;
-				if (not isdigit(s[i])) 
-					return 0;
-			}
-			else if (not isdigit(s[i])) 
-				return 0;
 		}
 		
-		else if (s.size() > 1) {
-			if (s[0] == '-') {
-				if (not i) continue;
-				if (not isdigit(s[i])) 
+		if (s.size() >= 3) {
+			//Check if binary or hexadecimal
+			if ((s[0] == '0' and (s[1] == 'x' or s[1] == 'b'))) {
+				if (i < 2) i = 2;
+				if (deci or not (alphanum.count(s[i]) or isdigit(s[i])))
 					return 0;
 			}
-			else if (not isdigit(s[i])) 
+			
+			//Check if negative
+			if (s[0] == '-')
+				i += (not i);
+			
+			//Check if character
+			if (s[0] == '\'' and s[s.size() - 1] == '\'' and (s.size() == 3 + (s[1] == '\\')))
+				return 1;
+			
+			//Check if number
+			if (not isdigit(s[i])) return 0;
+		}
+		
+		else if (s.size() >= 2) {
+			//Check if negative
+			if (s[0] == '-')
+				i += (not i);
+			
+			if (not isdigit(s[i]))
 				return 0;
 		}
 		
 		//Check if number
-		else if (not isdigit(s[i])) 
-			return 0;	
+		else if (not isdigit(s[i]))
+			return 0;
 	}
 	
 	return 1;
@@ -134,6 +150,86 @@ unsigned int findnoqs(const std::string &s, const std::string &f, unsigned int n
 	return s.size();
 }
 
+//Convert a string to assembly-compatible format
+std::string asmstr(std::string s) {
+	
+	std::cout << (s[0] == '\'') << ":" << (s[1] == '\\');
+	
+	//Check if char constant
+	if (s[0] == '\'') {
+		std::cout << "1\n";
+		if (s[1] == '\\' and s.size() == 4) {
+			std::cout << "1.1\n";
+			switch (s[2]) {
+				case '0':  return "0";
+				case 'b':  return "8";
+				case 't':  return "9";
+				case 'n':  return "10";
+				case 'r':  return "13";
+				case '\'': return "39";
+				default:   return s;
+			}
+		}
+		else return s;
+	}
+	
+	//Check if string constant
+	else if (s[0] == '"') {
+		std::cout << "2\n";
+		std::string 
+			stre,			//String escape code
+			strc,			//String escape code in assembly
+			strf;			//Modified string
+		
+		for (unsigned int i = 0; i < s.size(); ++i) {
+			//Convert escape codes to assembly-compatible characters
+			if (s[i] == '\\') {
+				//Check if not second last char, following another escape code
+				if  (not (s[i - 2] == '\\'))
+					strf += "\",";
+				
+				switch (s[i + 1]) {
+					case '0':  strf += " 0,  "; break;
+					case 'b':  strf += " 8,  "; break;
+					case 't':  strf += " 9,  "; break;
+					case 'n':  strf += " 10, "; break;
+					case 'r':  strf += " 13, "; break;
+					case '\'': strf += " 39, "; break;
+					case '"':  strf += "\\\"";  break;
+					default:
+						std::cout << "Error: Incompatible escape code." << std::endl; 
+						return 0;
+				}
+				//Check if not second last char, following another escape code
+				if (i < s.size() - 3) {
+					if  (not (s[i + 2] == '\\'))
+						strf += "\"";
+				}
+				else {
+					strf += "0";
+					break;
+				}
+				
+				i++;
+			}
+			else if (i > 0 and s[i] == '"') strf += "\", 0";
+			else strf += s[i];
+		}
+		return strf;
+	}
+	
+	std::cout << "BRUH";
+	return 0;
+}
+//Reverse a string
+std::string revstr(std::string s) { 
+	unsigned int n = s.length(); 
+	
+	// Swap character starting from two corners 
+	for (unsigned int i = 0; i < n / 2; ++i) std::swap(s[i], s[n - i - 1]);
+	
+	return s;
+} 
 //Skip whitespace for new token
 std::string nextword(const std::string &s, unsigned int n) {
 	while (
@@ -148,27 +244,7 @@ std::string nextword(const std::string &s, unsigned int n) {
 
 	return s.substr(n, s.size() - n);
 }
-//Get token or word in a string
-std::string lexer(const std::string &s) {
-	unsigned int n = 0;
-	while (
-		n < s.size() and
-		s[n] != '\0' and
-		s[n] != ' ' and
-		s[n] != '\r' and
-		s[n] != '\n' and
-		s[n] != '\t' and
-		s[n] != ',' and
-		s[n] != ':' and
-		s[n] != ';' and
-		s[n] != '[' and
-		s[n] != ']'
-	)
-		++n;
-	
-	return s.substr(0, n);
-}
-//Remove comments
+//Remove comments from string
 std::string removecom(std::string s) {
 	static bool incom = 0;		//For multiline comments
 	
@@ -193,11 +269,42 @@ std::string removecom(std::string s) {
 
 	return s;
 }
+//Get token or word in a string
+std::string lexer(const std::string &s) {
+	unsigned int n = 0;
+	
+	if (s[0] == '"') {
+		++n;
+		while (
+			n < s.size() and
+			s[n] != '\0' and
+			s[n] != '\n' and
+			s[n] != '\r')
+				++n;
+	}
+	while (
+		n < s.size() and
+		s[n] != '\0' and
+		s[n] != ' ' and
+		s[n] != '\t' and
+		s[n] != '\n' and
+		s[n] != '\r' and
+		s[n] != ',' and
+		s[n] != ':' and
+		s[n] != ';' and
+		s[n] != '[' and
+		s[n] != ']'
+	)
+		++n;
+	
+	return s.substr(0, n);
+}
+
 
 //Parse equations without need for AST (explanation below end of function)
 int lexereq(
 std::stringstream &out, 
-const compilerdata &cdata,
+compilerdata &cdata,
 std::string s, 
 const std::string &sscope) {
 	unsigned int 
@@ -205,8 +312,10 @@ const std::string &sscope) {
 		lexcount = 0,      	 	//Get lexercount of overall equation
 		varlexc = 0;       	 	//Get lexercount of parenthesized equation
 	
-	int addrc[2] = {0, 0};	 	//Get address or value of lvalue and rvalue
-	char addrprc[2] = {0, 0};	//Get precision of dereferencing value
+	int 
+		addrc[2] = {0, 0},   	//Get address or value of lvalue and rvalue
+		addrprc[2] = {0, 0};	//Get precision of dereferencing value
+		//offset[2] = {0, 0}; 	//Array access offset from variable address
 	
 	std::string token[3]; 	 	//All 3 tokens are used in 1st operation,
 	                      		//and the last 2 are used in subsequent operations
@@ -225,6 +334,7 @@ const std::string &sscope) {
 		isequ[2] = {0, 0},   		//Equation flag
 		isfun[2] = {0, 0},   		//Function flag
 		isarg[2] = {0, 0},   		//Argument flag
+		isstr[2] = {0, 0},   		//String constant flag
 		equend = 0;          		//End of parenthesized equation (only in recursion)
 	
 	std::cout << "START" << std::endl;
@@ -241,11 +351,13 @@ const std::string &sscope) {
 		
 		//Check if token is not an operator
 		if (tokenptr != 1) {
-			std::cout << s[token[tokenptr].size()] << (char) 10;
 			//Get address or value iteration count
 			if ((token[tokenptr][0] == '@' or token[tokenptr][0] == '$') and not (s[token[tokenptr].size()] == '[')) {
-				for (; token[tokenptr][0] == '@'; ++addrc[tokenptr/2])
-					token[tokenptr] = token[tokenptr].substr(1, token[tokenptr].size() - 1);
+				for (; token[tokenptr][0] == '@'; ++addrc[tokenptr/2]) {
+					if (token[tokenptr][1] == '.')
+						token[tokenptr] = token[tokenptr].substr(2, token[tokenptr].size() - 2);
+					else token[tokenptr] = token[tokenptr].substr(1, token[tokenptr].size() - 1);
+				}
 				
 				for (; token[tokenptr][0] == '$'; --addrc[tokenptr/2]) {
 					if (token[tokenptr][2] == '.') switch (token[tokenptr][1]) {
@@ -265,7 +377,7 @@ const std::string &sscope) {
 				isequ[tokenptr/2] = 1;
 				
 				//Save current lvalue
-				//if (tokenptr/2 == 1) out << "push rax" << std::endl;
+				if (not token[0].size() and tokenptr/2 == 1) out << "push rax" << std::endl;
 				
 				//Check if parenthesis is separate from token
 				if (token[tokenptr] == "(") {
@@ -408,8 +520,18 @@ const std::string &sscope) {
 				isarg[tokenptr/2] = 1;
 			}
 			
+			//Check if token is a string constant
+			if (token[tokenptr][0] == '"') {
+				isstr[tokenptr/2] = 1;
+			}
+			
 			//Check if token is variable or number
-			if (not (isequ[tokenptr/2] or isfun[tokenptr/2] or isarg[tokenptr/2] or isnumeric(token[tokenptr]))) {
+			if (not (isequ[tokenptr/2] 
+				or isfun[tokenptr/2] 
+				or isarg[tokenptr/2] 
+				or isstr[tokenptr/2]
+				or isnumeric(token[tokenptr]))
+			) {
 				isnum[tokenptr/2] = 0;
 				
 				//Check if token is global or stack variable
@@ -456,7 +578,11 @@ const std::string &sscope) {
 			
 			//First token
 			if (token[0].size() and not (isequ[0] or isfun[0] or isarg[0])) {
-				if (not isnum[0]) {
+				//Check if string
+				if (isstr[0]) lvalue = asmstr(token[0]);
+				
+				//Check if not number
+				else if (not isnum[0]) {
 					if (isglobal[0]) lvaluei = "G_" + token[0];
 					else lvaluei = sscope + token[0];
 					
@@ -470,24 +596,36 @@ const std::string &sscope) {
 					lvalue = "[" + lvalue + "]";
 				}
 				else {
-					lvalue = token[0];
+					if (token[0][0] == '\'') lvalue = asmstr(token[0]);
+					else lvalue = token[0];
 					
-					unsigned int vcomp;
+					unsigned long long int vcomp;
 					
-					if (lvalue[0] == '0' and (lvalue[1] == 'x' or lvalue[1] == 'b'))
-						vcomp = std::stoul(lvalue, nullptr, 16);
+					if (lvalue.find('.') < lvalue.size())
+						vcomp = 0x100000000LL;
+					if (lvalue[0] == '0' and (lvalue[1] == 'x' or lvalue[1] == 'b')) {
+						vcomp = std::stoul(lvalue.substr(2, lvalue.size() - 2), nullptr, (lvalue[1] == 'x') ? 16 : 2);
+						lvalue = std::to_string(vcomp);
+					}
+					else if (lvalue[0] == '\'')
+						vcomp = lvalue[1 + (lvalue[1] == '\\')];
 					else vcomp = std::stoi(lvalue.c_str());
 					
 					if (vcomp > 0xffffffff)	reg_ax = "rax";
 					else                   	reg_ax = "eax";
 				}
+				
 			}
 			
 			std::cout << "LEXCD1:	" << isarg[1] << std::endl;
 			
 			//Second token
 			if (not (isequ[1] or isfun[1] or isarg[1])) {
-				if (not isnum[1]) {
+				//Check if string
+				if (isstr[1]) rvalue = asmstr(token[2]);
+				
+				//Check if not number
+				else if (not isnum[1]) {
 					if (isglobal[1]) rvaluei = "G_" + token[2];
 					else rvaluei = sscope + token[2];
 					
@@ -501,17 +639,26 @@ const std::string &sscope) {
 					rvalue = "[" + rvalue + "]";
 				}
 				else {
-					rvalue = token[2];
+					if (token[2][0] == '\'') lvalue = asmstr(token[2]);
+					else rvalue = token[2];
 					
-					unsigned int vcomp;
-					if (rvalue[0] == '0' and (rvalue[1] == 'x' or rvalue[1] == 'b'))
-						vcomp = std::stoul(rvalue, nullptr, 16);
+					unsigned long long int vcomp;
+					
+					if (rvalue.find('.') < rvalue.size())
+						vcomp = 0x100000000LL;
+					if (rvalue[0] == '0' and (rvalue[1] == 'x' or rvalue[1] == 'b')) {
+						vcomp = std::stoul(rvalue.substr(2, rvalue.size() - 2), nullptr, (rvalue[1] == 'x') ? 16 : 2);
+						rvalue = std::to_string(vcomp);
+					}
+					else if (rvalue[0] == '\'')
+						vcomp = rvalue[1 + (rvalue[1] == '\\')];
 					else vcomp = std::stoi(rvalue.c_str());
 					
 					if (vcomp > 0xFFFFFFFF) 	reg_bx = "rbx";
 					else if (vcomp > 0xFFFF)	reg_bx = "ebx";
 					else if (vcomp > 0xFF)  	reg_bx = "bx";
 					else                    	reg_bx = "bl";
+					
 				}
 			}
 			/*
@@ -523,7 +670,7 @@ const std::string &sscope) {
 			//PARSE THE OPERATION!
 			if (isequ[1] or isfun[1]) {
 				out << "mov rbx, rax" << std::endl;
-				if (not isfun[1] or (isfun[0] and isfun[1])) 
+				if (not token[0].size() and (not isfun[1] or (isfun[0] and isfun[1])))
 					out << "pop rax" << std::endl;
 			}
 			
@@ -531,6 +678,7 @@ const std::string &sscope) {
 			
 			if (token[0].size()) {
 				if (not (isequ[0] or isfun[0])) {
+					
 					//Get argument in lvalue
 					if (isarg[0]) {
 						unsigned int argc = std::stoi(token[0].substr(4, token[tokenptr].size() - 4)) - 1;
@@ -556,11 +704,17 @@ const std::string &sscope) {
 						}
 					}
 					
+					//Make char pointer and set to value
+					else if (isstr[0]) {
+						out << "mov rax, LC" << cdata.strconstc << std::endl;
+						cdata.d8m.insert(std::pair<std::string, std::string>("LC" + std::to_string(cdata.strconstc), lvalue));
+						cdata.strconstc++;
+					}
+					
 					//Set directly to value
 					else if (not addrc[0]) {
-						if (isnum[0]) {
+						if (isnum[0])
 							out << "mov " << reg_ax << ", " << lvalue << std::endl;
-						}
 						else {
 							if (not (reg_ax == "rax" or reg_ax == "eax")) 
 								out << "xor eax, eax" << std::endl;
@@ -674,6 +828,13 @@ const std::string &sscope) {
 					}
 				}
 				
+				//Make char pointer and set to value
+				else if (isstr[1]) {
+					cdata.d8m.insert(std::pair<std::string, std::string>("LC" + std::to_string(cdata.strconstc), rvalue));
+					rvalue = "LC" + std::to_string(cdata.strconstc);
+					cdata.strconstc++;
+				}
+				
 				//Check operators
 				{
 					if (token[1] == "+")
@@ -714,6 +875,7 @@ const std::string &sscope) {
 			isequ[1] = 0;
 			isfun[1] = 0;
 			isarg[1] = 0;
+			isstr[1] = 0;
 			varlexc = 0;
 			
 			tokenptr = 1;
@@ -726,7 +888,11 @@ const std::string &sscope) {
 		
 		//Check if variable or number
 		if (not (isequ[0] or isfun[0] or isarg[0])) {
-			if (not isnum[0]) {
+			//Check if string
+			if (isstr[0]) lvalue = asmstr(token[0]);
+			
+			//Check if not number
+			else if (not isnum[0]) {
 				//Check if token is global or stack variable
 				if (isglobal[0]) lvaluei = "G_" + token[0];
 				else lvaluei = sscope + token[0];
@@ -741,12 +907,19 @@ const std::string &sscope) {
 				lvalue = "[" + lvalue + "]";
 			}
 			else {
-				lvalue = token[0];
+				if (token[0][0] == '\'') lvalue = asmstr(token[0]);
+				else lvalue = token[0];
 				
-				unsigned int vcomp;
+				unsigned long long int vcomp;
 				
-				if (lvalue[0] == '0' and (lvalue[1] == 'x' or lvalue[1] == 'b'))
-					vcomp = std::stoul(lvalue, nullptr, 16);
+				if (lvalue.find('.') < lvalue.size())
+					vcomp = 0x100000000LL;
+				else if (lvalue[0] == '0' and (lvalue[1] == 'x' or lvalue[1] == 'b')) {
+					vcomp = std::stoul(lvalue.substr(2, lvalue.size() - 2), nullptr, (lvalue[1] == 'x') ? 16 : 2);
+					lvalue = std::to_string(vcomp);
+				}
+				else if (lvalue[0] == '\'')
+					vcomp = lvalue[1 + (lvalue[1] == '\\')];
 				else vcomp = std::stoi(lvalue.c_str());
 				
 				if (vcomp > 0xffffffff)	reg_ax = "rax";
@@ -778,6 +951,13 @@ const std::string &sscope) {
 						out << "pop rax" << std::endl;
 						break;
 				}
+			}
+			
+			//Make char pointer and set to value
+			else if (isstr[0]) {
+				out << "mov rax, LC" << cdata.strconstc << std::endl;
+				cdata.d8m.insert(std::pair<std::string, std::string>("LC" + std::to_string(cdata.strconstc), lvalue));
+				cdata.strconstc++;
 			}
 			
 			//Set directly to value

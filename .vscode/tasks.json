@@ -1,0 +1,35 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "GCC build",
+			"command": "./win-compile.bat",
+			"options": {
+				"cwd": "${workspaceFolder}/scr/"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"type": "shell",
+			"label": "LLVM Clang build",
+			"command": "./win-compile-llvm.bat",
+			"options": {
+				"cwd": "${workspaceFolder}/scr/"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			}
+		}
+	]
+}

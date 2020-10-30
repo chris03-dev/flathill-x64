@@ -1,0 +1,55 @@
+<NotepadPlus>
+    <Project name="flathill-x64">
+        <Folder name="bin">
+            <File name="bin\flat-somehow-works.exe" />
+            <File name="bin\flat-v0.1.1-alpha-deb.elf" />
+            <File name="bin\flat-v0.1.1-alpha-win.exe" />
+            <File name="bin\flat-v0.1.2-alpha-deb.elf" />
+            <File name="bin\flat-v0.1.2-alpha-win.exe" />
+            <File name="bin\flat-v0.2.0-alpha-deb.elf" />
+            <File name="bin\flat-v0.2.0-alpha-win.exe" />
+            <File name="bin\flat-v0.2.1-alpha-deb.elf" />
+            <File name="bin\flat-v0.2.1-alpha-win.exe" />
+            <File name="bin\flat-v0.2.2-alpha-win.exe" />
+            <File name="bin\flat-v0.3.0-alpha-deb.elf" />
+            <File name="bin\flat-v0.3.0-alpha-win.exe" />
+            <File name="bin\flat-v0.3.1-alpha-deb.elf" />
+            <File name="bin\flat-v0.3.1-alpha-win.exe" />
+            <File name="bin\flat-v0.4.0-alpha-deb.elf" />
+            <File name="bin\flat-v0.4.0-alpha-win.exe" />
+            <File name="bin\flat.exe" />
+            <File name="bin\flat2.exe" />
+            <File name="bin\flatllvm.exe" />
+        </Folder>
+        <Folder name="code">
+            <File name="code\boot.flat" />
+            <File name="code\example.flat" />
+            <File name="code\hello" />
+            <File name="code\hello.asm" />
+            <File name="code\hello.exe" />
+            <File name="code\hello.flat" />
+            <File name="code\hellox.asm" />
+            <File name="code\hellox.exe" />
+        </Folder>
+        <Folder name="src">
+            <File name="src\.desktop" />
+            <File name="src\flat-icon.ico" />
+            <File name="src\flat.cpp" />
+            <File name="src\linemod.cpp" />
+            <File name="src\linemod.h" />
+            <File name="src\nix-compile.sh" />
+            <File name="src\testout.txt" />
+            <File name="src\win-compile-llvm.bat" />
+            <File name="src\win-compile.bat" />
+            <File name="src\win32res.rc" />
+        </Folder>
+        <Folder name="zip">
+            <File name="zip\flat-v0.1.1-alpha-src.zip" />
+            <File name="zip\flat-v0.1.2-alpha-src.zip" />
+        </Folder>
+        <File name=".gitignore" />
+        <File name="CODEOWNERS" />
+        <File name="LICENSE.md" />
+        <File name="README.md" />
+    </Project>
+</NotepadPlus>

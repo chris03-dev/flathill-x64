@@ -1,0 +1,37 @@
+pack console
+console-focus-set
+console-focus-get
+console-hide
+console-show
+console-clear
+
+console-in-integer
+console-in-float
+console-in-cstring
+console-out-integer
+console-out-float
+console-out-cstring
+
+console-inf
+console-outf
+
+console-out-color-tx-set
+console-out-color-bg-set
+console-out-color-tx-get
+console-out-color-bg-get
+
+pack key
+key-hold
+key-press
+key-release
+
+pack os
+os-name
+os-version
+os-input
+os-clipboard-copy
+os-clipboard-paste
+os-clipboard-swap
+
+pack window
+window-open
